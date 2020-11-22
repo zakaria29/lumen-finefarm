@@ -11,11 +11,14 @@ use App\LogStokBarang;
 use App\LogPack;
 use App\StokBarang;
 use App\TanggunganPembayaran;
+use App\TanggunganPack;
 use App\Pack;
 use App\LogUang;
 use App\Users;
 use App\PackBarang;
 use App\Barang;
+use App\KembaliPack;
+use App\SetorUang;
 
 /**
  *
@@ -373,6 +376,7 @@ class OrdersController extends Controller
       $bill->id_users = $orders->id_pembeli;
       $bill->nominal = $nominal;
       $bill->status = "1"; // aktif sebagai tagihan
+      $bill->save();
 
       $tb = TanggunganPembayaran::where("id_users", $orders->id_pembeli);
       if ($tb->count() > 0) {
@@ -392,6 +396,90 @@ class OrdersController extends Controller
     return response([
       "message" => "Order berhasil dikirim"
     ]);
+  }
+
+  public function ready_send_order(Request $request, $id, $limit, $offset)
+  {
+    $this->find = $request->find;
+    $orders = Orders::where("id_status_orders", "3")
+    ->where("id_sopir",$id)
+    ->with([
+      "pembeli","users", "sopir","status_orders","log_orders",
+      "log_orders.users","log_orders.status_orders",
+      "detail_orders","detail_orders.barang","detail_orders.pack"
+    ])->where(function($q){
+      $q->whereHas("detail_orders.barang", function($query){
+        $query->where("nama_barang","like","%$this->find%");
+      })
+      ->orWhereHas("detail_orders.pack", function($query){
+        $query->where("nama_pack","like","%$this->find%");
+      })
+      ->orWhereHas("pembeli", function($query){
+        $query->where("nama","like","%$this->find%");
+      })
+      ->orWhereHas("sopir", function($query){
+        $query->where("nama","like","%$this->find%");
+      })
+      ->orWhereHas("users", function($query){
+        $query->where("nama","like","%$this->find%");
+      })
+      ->orWhere("po","like","%$this->find%")
+      ->orWhere("invoice","like","%$this->find%");
+    })->orderBy("waktu_order","desc");
+
+      if ($limit == null or $offset == null) {
+        return [
+          "count" => $orders->count(),
+          "orders" => $orders->get(),
+        ];
+      }else{
+        return [
+          "count" => $orders->count(),
+          "orders" => $orders->take($limit)->skip($offset)->get(),
+        ];
+      }
+  }
+
+  public function coming_order(Request $request, $id, $limit, $offset)
+  {
+    $this->find = $request->find;
+    $orders = Orders::where("id_status_orders", "4")
+    ->where("id_sopir",$id)
+    ->with([
+      "pembeli","users", "sopir","status_orders","log_orders",
+      "log_orders.users","log_orders.status_orders","bill","tanggungan_pack",
+      "detail_orders","detail_orders.barang","detail_orders.pack",
+    ])->where(function($q){
+      $q->whereHas("detail_orders.barang", function($query){
+        $query->where("nama_barang","like","%$this->find%");
+      })
+      ->orWhereHas("detail_orders.pack", function($query){
+        $query->where("nama_pack","like","%$this->find%");
+      })
+      ->orWhereHas("pembeli", function($query){
+        $query->where("nama","like","%$this->find%");
+      })
+      ->orWhereHas("sopir", function($query){
+        $query->where("nama","like","%$this->find%");
+      })
+      ->orWhereHas("users", function($query){
+        $query->where("nama","like","%$this->find%");
+      })
+      ->orWhere("po","like","%$this->find%")
+      ->orWhere("invoice","like","%$this->find%");
+    })->orderBy("waktu_order","desc");
+
+      if ($limit == null or $offset == null) {
+        return [
+          "count" => $orders->count(),
+          "orders" => $orders->get(),
+        ];
+      }else{
+        return [
+          "count" => $orders->count(),
+          "orders" => $orders->take($limit)->skip($offset)->get(),
+        ];
+      }
   }
 
   public function deliver_order($id_orders, $id_users)
@@ -424,27 +512,10 @@ class OrdersController extends Controller
       $pack->save();
     }
 
-    return response([
-      "message" => "Pengiriman order sedang berlangsung"
-    ]);
-  }
-
-  public function delivered_order(Request $request, $id_orders)
-  {
     $orders = Orders::where("id_orders", $id_orders)->first();
-    $orders->id_status_orders = "5";
-    $orders->save();
-
-    $logOrder = new LogOrders();
-    $logOrder->id_orders = $id_orders;
-    $logOrder->waktu = date("Y-m-d H:i:s");
-    $logOrder->id_users = $request->id_users;
-    $logOrder->id_status_orders = $orders->id_status_orders;
-    $logOrder->save();
-
     /* tanggungan pack */
     foreach ($orders->detail_orders as $do) {
-      if($do->harga_beli == "0" && $do->pack->keterangan == "1"){
+      if($do->harga_pack == "0" && $do->pack->keterangan == "1"){
         // jika harga beli = 0 dan keterangan pack auto_pinjam
         $tanggunganPack = TanggunganPack::where("id_users", $orders->id_pembeli)
         ->where("id_pack", $do->id_pack);
@@ -466,11 +537,31 @@ class OrdersController extends Controller
     }
     /* end tanggungan pack */
 
+    return response([
+      "message" => "Pengiriman order sedang berlangsung"
+    ]);
+  }
+
+  public function delivered_order(Request $request, $id_orders)
+  {
+    $orders = Orders::where("id_orders", $id_orders)->first();
+    $orders->id_status_orders = "5";
+    $orders->save();
+
+    $logOrder = new LogOrders();
+    $logOrder->id_orders = $id_orders;
+    $logOrder->waktu = date("Y-m-d H:i:s");
+    $logOrder->id_users = $request->id_users;
+    $logOrder->id_status_orders = $orders->id_status_orders;
+    $logOrder->save();
+
+
     $setor_uang = json_decode($request->setor_uang);
     $kembali_pack = json_decode($request->kembali_pack);
 
     foreach ($setor_uang as $su) {
-      $o = Orders::where("id_orders", $su->id_orders)->first();
+      // $su = id_orders
+      $o = Orders::where("id_orders", $su)->first();
       $setorUang = new SetorUang();
       $setorUang->id_setor = "SU".time().rand(1,1000);
       $setorUang->waktu = date("Y-m-d H:i:s");
@@ -480,7 +571,7 @@ class OrdersController extends Controller
       $setorUang->id_orders = $o->id_orders;
       $setorUang->save();
 
-      $bill = Bill::where("id_orders", $su->id_orders)->first();
+      $bill = Bill::where("id_orders", $su)->first();
       $bill->status = "0";
       $bill->save();
     }
@@ -491,8 +582,9 @@ class OrdersController extends Controller
       $kembaliPack->waktu = date("Y-m-d H:i:s");
       $kembaliPack->id_pack = $kp->id_pack;
       $kembaliPack->jumlah = $kp->jumlah;
-      $setorUang->id_users = $request->id_users;
-      $setorUang->id_pembeli = $request->id_pembeli;
+      $kembaliPack->id_users = $request->id_users;
+      $kembaliPack->id_pembeli = $request->id_pembeli;
+      $kembaliPack->save();
     }
 
     return response([

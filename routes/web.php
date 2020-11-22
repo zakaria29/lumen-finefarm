@@ -88,3 +88,7 @@ $router->post("/verify-orders/{limit}/{offset}", "OrdersController@verify_order"
 $router->post("/accept-orders/{id}", "OrdersController@accept_order");
 $router->post("/prepare-orders/{limit}/{offset}", "OrdersController@prepare_order");
 $router->post("/send-orders/{id_orders}", "OrdersController@send_order");
+$router->post("/ready-send-orders/{id}/{limit}/{offset}", "OrdersController@ready_send_order");
+$router->get("/deliver-orders/{id_orders}/{id_users}", "OrdersController@deliver_order");
+$router->post("/coming-orders/{id}/{limit}/{offset}", "OrdersController@coming_order");
+$router->post("/delivered-orders/{id_orders}", "OrdersController@delivered_order");

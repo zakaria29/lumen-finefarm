@@ -15,6 +15,16 @@ class Orders extends Model
     public $incrementing = false;
     public $timestamps = false;
 
+    public function bill()
+    {
+      return $this->hasMany("App\Bill","id_users","id_pembeli")->where("status","1");
+    }
+
+    public function tanggungan_pack()
+    {
+      return $this->hasMany("App\TanggunganPack","id_users","id_pembeli")->with("pack");
+    }
+
     public function pembeli()
     {
       return $this->belongsTo("App\Users","id_pembeli");
