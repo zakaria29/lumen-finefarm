@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Crypt;
 use App\Users;
 use App\GroupCustomer;
 use App\Orders;
+use App\Bill;
 class CustomerController extends Controller
 {
   public function get_all()
@@ -346,6 +347,18 @@ class CustomerController extends Controller
           "orders" => $orders->take($limit)->skip($offset)->get(),
         ];
       }
+  }
+
+  public function get_bill($id_users)
+  {
+    return response(
+      Bill::where("id_users", $id_users)->where("status","1")
+      ->with([
+        "orders","orders.detail_orders","orders.detail_orders.barang",
+        "orders.detail_orders.pack","orders.sopir","orders.pembeli",
+        "orders.status_orders","orders.users"
+      ])->get()
+    );
   }
 }
 

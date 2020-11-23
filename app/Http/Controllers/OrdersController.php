@@ -1,5 +1,6 @@
 <?php
 namespace App\Http\Controllers;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use App\Orders;
 use App\DetailOrders;
@@ -19,6 +20,7 @@ use App\PackBarang;
 use App\Barang;
 use App\KembaliPack;
 use App\SetorUang;
+use App\PembayaranOrders;
 
 /**
  *
@@ -36,7 +38,7 @@ class OrdersController extends Controller
     $orders->waktu_pengiriman = $request->waktu_pengiriman;
     $orders->po = $request->po;
     $orders->invoice = $request->invoice;
-    $orders->id_status_orders = ($request->id_users == null) ? "1" : "2";
+    $orders->id_status_orders = ($request->id_users == '') ? "1" : "2";
     $orders->tgl_jatuh_tempo = $request->tgl_jatuh_tempo;
     $orders->catatan = $request->catatan;
     if ($request->tipe_pembayaran == "2") {
@@ -48,7 +50,7 @@ class OrdersController extends Controller
       $orders->down_payment = "0";
     }
     $orders->total_bayar = $request->total_bayar;
-    $orders->id_sopir = $request->id_sopir;
+    $orders->id_sopir = ($request->id_sopir == '') ? null : $request->id_sopir;
     $orders->save();
 
     // insert log order
@@ -614,7 +616,7 @@ class OrdersController extends Controller
         $logPack = new LogPack();
         $logPack->waktu = $kp->waktu;
         $logPack->id_pack = $kp->id_pack;
-        $logPack->jumlah = $kp->jumlah_pack;
+        $logPack->jumlah = $kp->jumlah;
         $logPack->id_users = $kp->id_users;
         $logPack->id_pembeli = $kp->id_pembeli;
         $logPack->status = "in";
@@ -622,8 +624,8 @@ class OrdersController extends Controller
         $logPack->harga = 0;
         $logPack->save();
 
-        $pack = Pack::where("id_pack", $d->id_pack)->first();
-        $pack->stok += $d->jumlah_pack;
+        $pack = Pack::where("id_pack", $kp->id_pack)->first();
+        $pack->stok += $kp->jumlah;
         $pack->save();
 
         /* update tanggungan pack */
@@ -633,7 +635,7 @@ class OrdersController extends Controller
           $tp = $tanggunganPack->first();
           TanggunganPack::where("id_users", $kp->id_pembeli)
           ->where("id_pack", $kp->id_pack)
-          ->update(["jumlah" => $tp->jumlah - $kp->jumlah_pack]);
+          ->update(["jumlah" => $tp->jumlah - $kp->jumlah]);
         }
       }
 
@@ -702,30 +704,44 @@ class OrdersController extends Controller
 
   public function pay_orders(Request $request)
   {
-    $file = $request->bukti;
-    $fileName = time().".".$file->extension();
-    $request->file('bukti')->move(storage_path('bukti'), $fileName);
+    try {
+      // $file = $request->bukti;
+      // $fileName = time().".".$file->extension();
+      // $request->file('bukti')->move(storage_path('bukti'), $fileName);
 
-    $orders = json_decode($request->pembayaran_orders);
-    foreach ($orders as $o) {
-      $pay = new PembayaranOrders();
-      $pay->id_pay = "PAY".time().rand(1,1000);
-      $pay->nominal = $o->nominal;
-      $pay->id_orders = $o->id_orders;
-      $pay->bukti = $fileName;
-      $pay->keterangan = null;
-      $pay->waktu = date("Y-m-d H:i:s");
-      $pay->id_users = $request->id_users;
-      $pay->save();
+      $folderId = "1ioI9YSgYU_tlgW2JTG_GPqqPN15RiAV2";
+      $file = $request->bukti;
+      $filename = $file->getClientOriginalName();
+      config(['filesystems.disks.google.folderId' => $folderId]);
+      Storage::disk('google')->put($filename, file_get_contents($file));
+      $link = Storage::disk('google')->url($filename);
+      $url = explode("/", $link);
+      $idFile = end($url);
 
-      $bill = Bill::where("id_orders",$o->id_orders)->first();
-      $bill->status = "0";
-      $bill->save();
+      $orders = json_decode($request->pembayaran_orders);
+      foreach ($orders as $o) {
+        $pay = new PembayaranOrders();
+        $pay->id_pay = "PAY".time().rand(1,1000);
+        $pay->nominal = $o->nominal;
+        $pay->id_orders = $o->id_orders;
+        $pay->bukti = $link;
+        $pay->keterangan = "";
+        $pay->waktu = date("Y-m-d H:i:s");
+        $pay->id_users = $request->id_users;
+        $pay->save();
+
+        $bill = Bill::where("id_orders",$o->id_orders)->first();
+        $bill->status = "0";
+        $bill->save();
+      }
+
+      return response([
+        "message" => "Pembayaran order berhasil, mohon tunggu verifikasi dari kasir"
+      ]);
+    } catch (\Exception $e) {
+      return response(["error" => $e->getMessage()]);
     }
 
-    return response([
-      "message" => "Pembayaran order berhasil"
-    ]);
   }
 
   public function verify_pembayaran(Request $request)
@@ -882,6 +898,38 @@ class OrdersController extends Controller
     return response([
       "orders" => $items
     ]);
+  }
+
+  public function getSetoranUang($id_sopir)
+  {
+    return response(
+      SetorUang::where("id_users",$id_sopir)->with(["pembeli","sopir"])->get()
+    );
+  }
+
+  public function getSetoranPack($id_sopir)
+  {
+    return response(
+      KembaliPack::where("id_users",$id_sopir)->with(["pack","sopir","pembeli"])->get()
+    );
+  }
+
+  public function upload(Request $request)
+  {
+    try {
+      $folderId = "1ioI9YSgYU_tlgW2JTG_GPqqPN15RiAV2";
+      $file = $request->file;
+      $filename = $file->getClientOriginalName();
+      config(['filesystems.disks.google.folderId' => $folderId]);
+      Storage::disk('google')->put($filename, file_get_contents($file));
+      $link = Storage::disk('google')->url($filename);
+      $url = explode("/", $link);
+      $idFile = end($url);
+      return response(["id" => $idFile]);
+    } catch (\Exception $e) {
+      return response(["error" => $e->getMessage()]);
+    }
+
   }
 }
 

@@ -61,6 +61,7 @@ $router->post("/cashier/auth", "CashierController@auth");
 $router->post("/cashier/check", "CashierController@check");
 
 $router->get("/driver", "DriverController@get_all");
+$router->post("/driver", "DriverController@get_all");
 $router->get("/driver/{limit}/{offset}", "DriverController@get");
 $router->post("/driver/{limit}/{offset}", "DriverController@find");
 $router->post("/driver/save", "DriverController@store");
@@ -79,6 +80,7 @@ $router->delete("/customer/drop/{id_users}", "CustomerController@drop");
 $router->post("/customer/auth", "CustomerController@auth");
 $router->post("/customer/check", "CustomerController@check");
 $router->post("/customer-orders/{id}[/{limit}/{offset}]", "CustomerController@orders");
+$router->get("/customer-bill/{id_users}", "CustomerController@get_bill");
 
 $router->get("/orders/get/{id_orders}", "OrdersController@get");
 $router->post("/orders/new_order", "OrdersController@create_new_order");
@@ -92,3 +94,10 @@ $router->post("/ready-send-orders/{id}/{limit}/{offset}", "OrdersController@read
 $router->get("/deliver-orders/{id_orders}/{id_users}", "OrdersController@deliver_order");
 $router->post("/coming-orders/{id}/{limit}/{offset}", "OrdersController@coming_order");
 $router->post("/delivered-orders/{id_orders}", "OrdersController@delivered_order");
+$router->get("/setoran-uang/{id_sopir}", "OrdersController@getSetoranUang");
+$router->post("/verify-uang","OrdersController@verify_uang");
+$router->get("/setoran-pack/{id_sopir}", "OrdersController@getSetoranPack");
+$router->post("/verify-pack","OrdersController@verify_pack");
+$router->post("/pay-orders","OrdersController@pay_orders");
+
+$router->post("/upload","OrdersController@upload");
