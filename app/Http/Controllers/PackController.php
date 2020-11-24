@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Pack;
 use App\PackBarang;
+use DB;
 
 class PackController extends Controller
 {
@@ -105,7 +106,49 @@ class PackController extends Controller
         "message" => $e->getMessage()
       ]);
     }
+  }
 
+  public $from;
+  public $to;
+  public $id_pembeli;
+  public function mutasi_pack(Request $request, $id_pack)
+  {
+    $this->from = $request->from." 00:00:00";
+    $this->to = $request->to." 23:59:59";
+
+    if ($request->has("id_pembeli")) {
+      $this->id_pembeli = $request->id_pembeli;
+      $mutasi = Pack::where("id_pack",$id_pack)->with(["log_pack" => function($query){
+        $query->select("id_pack",
+          DB::raw("date(waktu) as waktu"),
+          DB::raw("sum(if(status = 'in', jumlah, 0)) as masuk"),
+          DB::raw("sum(if(status = 'out', jumlah, 0)) as keluar"),
+          DB::raw("if(status = 'out', stok + jumlah, stok - jumlah) as stok"),
+          DB::raw("sum(if(beli = '1', jumlah, 0)) as beli"),
+          DB::raw("sum(if(beli = '1', jumlah * harga, 0)) as harga")
+          )
+        ->whereBetween("waktu",[$this->from, $this->to])
+        ->where("id_pembeli", $this->id_pembeli)
+        ->groupBy(DB::raw("date(waktu)"))
+        ->orderBy("waktu","asc");
+      }])->first();
+
+    } else {
+      $mutasi = Pack::where("id_pack",$id_pack)->with(["log_pack" => function($query){
+        $query->select("id_pack",
+          DB::raw("date(waktu) as waktu"),
+          DB::raw("sum(if(status = 'in', jumlah, 0)) as masuk"),
+          DB::raw("sum(if(status = 'out', jumlah, 0)) as keluar"),
+          DB::raw("if(status = 'out', stok + jumlah, stok - jumlah) as stok"),
+          DB::raw("sum(if(beli = '1', jumlah, 0)) as beli"),
+          DB::raw("sum(if(beli = '1', jumlah * harga, 0)) as harga")
+          )
+        ->whereBetween("waktu",[$this->from, $this->to])
+        ->groupBy(DB::raw("date(waktu)"))
+        ->orderBy("waktu","asc");
+      }])->first();
+    }
+    return response($mutasi);
   }
 }
 ?>

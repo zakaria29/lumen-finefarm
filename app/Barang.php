@@ -25,8 +25,7 @@ class Barang extends Model
     }
 
     public function log_stok_barang(){
-      return $this->hasMany("App\LogStokBarang","id_barang","id_barang")
-      ->orderBy("waktu","desc");
+      return $this->hasMany("App\LogStokBarang","id_barang","id_barang");
     }
 
     public function harga_barang()

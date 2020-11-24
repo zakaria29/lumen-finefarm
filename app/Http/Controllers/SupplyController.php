@@ -54,6 +54,7 @@ class SupplyController extends Controller
         $log->jumlah = $ds->jumlah_utuh;
         $log->id = $supply->id_supply;
         $log->status = "in";
+        $log->loss = $ds->jumlah_loss;
         $log->save();
 
         $stokBarang = StokBarang::where("id_supplier", $request->id_supplier)
@@ -181,6 +182,7 @@ class SupplyController extends Controller
         $log->jumlah = $ds->jumlah_utuh;
         $log->id = $supply->id_supply;
         $log->status = "in";
+        $log->loss = $ds->jumlah_loss;
         $log->save();
 
         $stokBarang = StokBarang::where("id_supplier", $request->id_supplier)

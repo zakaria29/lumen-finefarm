@@ -7,7 +7,7 @@ class LogPack extends Model
 {
     protected $table = "log_pack";
     protected $fillable = [
-      "waktu","id_pack","jumlah","id_users","status","beli","id_pembeli","harga"
+      "waktu","id_pack","jumlah","id_users","status","beli","id_pembeli","harga","stok"
     ];
     public $incrementing = false;
     public $timestamps = false;

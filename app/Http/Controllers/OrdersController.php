@@ -21,6 +21,7 @@ use App\Barang;
 use App\KembaliPack;
 use App\SetorUang;
 use App\PembayaranOrders;
+use App\FPDF\FPDF;
 
 /**
  *
@@ -498,6 +499,10 @@ class OrdersController extends Controller
     $logOrder->save();
 
     foreach ($orders->detail_orders as $d) {
+      $pack = Pack::where("id_pack", $d->id_pack)->first();
+      $pack->stok -= $d->jumlah_pack;
+      $pack->save();
+
       $logPack = new LogPack();
       $logPack->waktu = date("Y-m-d H:i:s");
       $logPack->id_pack = $d->id_pack;
@@ -507,11 +512,8 @@ class OrdersController extends Controller
       $logPack->status = "out";
       $logPack->beli = ($d->harga_pack > 0) ? true : false;
       $logPack->harga = $d->harga_pack;
+      $logPack->stok = $pack->stok;
       $logPack->save();
-
-      $pack = Pack::where("id_pack", $d->id_pack)->first();
-      $pack->stok -= $d->jumlah_pack;
-      $pack->save();
     }
 
     $orders = Orders::where("id_orders", $id_orders)->first();
@@ -613,6 +615,10 @@ class OrdersController extends Controller
     $kembaliPack = json_decode($request->kembali_pack);
     foreach ($kembaliPack as $kp) {
       if ($kp->status == "1") {
+        $pack = Pack::where("id_pack", $kp->id_pack)->first();
+        $pack->stok += $kp->jumlah;
+        $pack->save();
+
         $logPack = new LogPack();
         $logPack->waktu = $kp->waktu;
         $logPack->id_pack = $kp->id_pack;
@@ -622,11 +628,8 @@ class OrdersController extends Controller
         $logPack->status = "in";
         $logPack->beli = false;
         $logPack->harga = 0;
+        $logPack->stok = $pack->stok;
         $logPack->save();
-
-        $pack = Pack::where("id_pack", $kp->id_pack)->first();
-        $pack->stok += $kp->jumlah;
-        $pack->save();
 
         /* update tanggungan pack */
         $tanggunganPack = TanggunganPack::where("id_users", $kp->id_pembeli)
@@ -687,6 +690,10 @@ class OrdersController extends Controller
         $tp = TanggunganPembayaran::where("id_users", $su->id_pembeli)->first();
         TanggunganPembayaran::where("id_users", $su->id_pembeli)
         ->update(["nominal" => $tp->nominal - $su->nominal]);
+
+        $bill = Bill::where("id_orders", $su->id_orders)->first();
+        $bill->status = "2";
+        $bill->save();
       }else{
         $bill = Bill::where("id_orders", $su->id_orders)->first();
         $bill->status = "1";
@@ -725,7 +732,7 @@ class OrdersController extends Controller
         $pay->nominal = $o->nominal;
         $pay->id_orders = $o->id_orders;
         $pay->bukti = $link;
-        $pay->keterangan = "";
+        $pay->keterangan = "0";
         $pay->waktu = date("Y-m-d H:i:s");
         $pay->id_users = $request->id_users;
         $pay->save();
@@ -741,7 +748,16 @@ class OrdersController extends Controller
     } catch (\Exception $e) {
       return response(["error" => $e->getMessage()]);
     }
+  }
 
+  public function get_verify_pembayaran()
+  {
+    return response(PembayaranOrders::where("keterangan","0")
+    ->with([
+      "users","orders","orders.detail_orders","orders.detail_orders.barang",
+      "orders.detail_orders.pack","orders.pembeli","orders.sopir"
+    ])
+    ->orderBy("waktu","asc")->get());
   }
 
   public function verify_pembayaran(Request $request)
@@ -750,8 +766,8 @@ class OrdersController extends Controller
     $pay->keterangan = $request->keterangan;
     $pay->save();
 
-    if ($pay->keterangan == "1") {
-      Bill::where("id_orders", $pay->$id_orders)->delete();
+    if ($pay->keterangan == "2") {
+      // Bill::where("id_orders", $pay->$id_orders)->delete();
       $tp = TanggunganPembayaran::where("id_users", $pay->id_users)->first();
       TanggunganPembayaran::where("id_users", $pay->id_users)
       ->update(["nominal" => $tp->nominal - $pay->nominal]);
@@ -771,6 +787,10 @@ class OrdersController extends Controller
         $lu->status = "in";
         $lu->save();
       }
+
+      $bill = Bill::where("id_orders", $pay->id_orders)->first();
+      $bill->status = "2";
+      $bill->save();
     }else{
       $bill = Bill::where("id_orders", $pay->id_orders)->first();
       $bill->status = "1";
@@ -903,31 +923,125 @@ class OrdersController extends Controller
   public function getSetoranUang($id_sopir)
   {
     return response(
-      SetorUang::where("id_users",$id_sopir)->with(["pembeli","sopir"])->get()
+      SetorUang::where("id_users",$id_sopir)->with(["pembeli","sopir"])
+      ->orderBy("waktu","asc")->get()
     );
   }
 
   public function getSetoranPack($id_sopir)
   {
     return response(
-      KembaliPack::where("id_users",$id_sopir)->with(["pack","sopir","pembeli"])->get()
+      KembaliPack::where("id_users",$id_sopir)->with(["pack","sopir","pembeli"])
+      ->orderBy("waktu","asc")->get()
     );
   }
 
-  public function upload(Request $request)
+  public function struk($id_orders)
   {
-    try {
-      $folderId = "1ioI9YSgYU_tlgW2JTG_GPqqPN15RiAV2";
-      $file = $request->file;
-      $filename = $file->getClientOriginalName();
-      config(['filesystems.disks.google.folderId' => $folderId]);
-      Storage::disk('google')->put($filename, file_get_contents($file));
-      $link = Storage::disk('google')->url($filename);
-      $url = explode("/", $link);
-      $idFile = end($url);
-      return response(["id" => $idFile]);
-    } catch (\Exception $e) {
-      return response(["error" => $e->getMessage()]);
+    $orders = Orders::where("id_orders", $id_orders)->with([
+      "detail_orders","pembeli","pembeli.tanggungan_pack","pembeli.tanggungan_pack.pack",
+      "detail_orders.barang","detail_orders.pack","users"
+    ]);
+
+    $hari=["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"];
+
+    if ($orders->count() > 0) {
+      $o = $orders->first();
+      $doc= new FPDF("P","cm",array("7.6","29.7"));
+      $doc->AddPage();
+      // $doc->AddFont('A11','','ufonts.com_bm-receipt-a11.php');
+      $doc->AddFont('A11','','fake receipt.php');
+      $doc->AddFont('Arial','','ufonts.com_arial.php');
+      $doc->SetMargins(0.1,0.1);
+      $doc->SetTopMargin(0.1);
+      $doc->SetTitle("Fine Farm ID");
+
+      $doc->SetFont('Arial','B',18);
+      $doc->Cell(7,0.1,'',0,1,'C');
+      $doc->Cell(7,0.5,'FINE FARM',0,1,'C');
+      $doc->SetFont('Arial','',9);
+      $doc->Cell(7,0.5,'EGG SUPPLIER',0,1,'C');
+      $doc->SetFont('A11','',10);
+      $doc->Cell(7,0.5,'JL. CILIWUNG 11, MALANG',0,1,'C');
+      $doc->SetFont('A11','',9);
+      $doc->Cell(7,0.5,'0818-383038',0,1,'C');
+      //$doc->Cell(7,0.5,'','B',1,'C');
+      $doc->SetFont('A11','',6);
+      $doc->Ln(0.5);
+      //$doc->Cell(0.1);
+
+      $tgl1=date_create($o->waktu_pengiriman);
+      $doc->Cell(7,0.8,$hari[date_format($tgl1,'N')-1]." ".date_format($tgl1,'d/m/Y'),'B',1,'L');
+
+      $doc->Cell(2.2,0.8,'Kepada',0,0,'L');
+      $doc->Cell(4.8,0.8,": ".$o->pembeli->nama,0,1,'L');
+
+      $doc->Cell(2.2,0.5,'No. PO',0,0,'L');
+      $doc->Cell(4.8,0.5,": $o->po",0,1,'L');
+
+      $doc->Cell(2.2,0.5,'Invoice',0,0,'L');
+      $doc->Cell(4.8,0.5,": $o->invoice",0,1,'L');
+
+      //$doc->Cell(2,0.5,'Tanggal',0,0,'L');
+
+
+      $doc->Cell(2.2,0.5,'Jth Tempo',0,0,'L');
+      $tgl1=date_create($o->tgl_jatuh_tempo);
+      $doc->Cell(5,0.5,": ".date_format($tgl1,'d/m/Y'),0,1,'L');
+
+      $doc->Cell(2.2,0.8,'Kasir','B',0,'L');
+      $doc->Cell(4.8,0.8,": ".$o->users->nama,'B',1,'L');
+
+      $doc->Ln(0.5);
+
+      foreach ($o->detail_orders as $key => $value) {
+        $doc->Cell(4,0.7,$value->barang->nama_barang." (".$value->pack->nama_pack.")",0,1,'L');
+        $doc->Cell(1.5,0.7,
+        $value->jumlah_barang." ".($value->barang->satuan == "1" ? "Kg" : "Btr."),
+        0,0,'L');
+        //$doc->Cell(0.3,0.7,'x',0,0,'R');
+        $doc->Cell(1.5,0.7," x ".number_format($value->harga_beli,0,',','.'),0,0,'R');
+        //$doc->Cell(0.3,0.7,'=',0,0,'R');
+        $doc->Cell(3.5,0.7," = ".number_format($value->harga_beli * $value->jumlah_barang,
+        0,',','.'),0,1,'R');
+      }
+
+      //$doc->Cell(1);
+      $doc->SetFont('A11','',9);
+      $doc->Ln(0.5);
+      $doc->Cell(2,0.8,'Total: ','T',0,'L');
+      $doc->Cell(4.5,0.8,"Rp ".number_format($o->total_bayar,0,',','.'),'T',0,'R');
+      $doc->Cell(0.9,0.8,'','T',1,'L');
+      $doc->SetFont('A11','',6);
+
+      $doc->Ln(0.5);
+      $countTP = 0;
+      foreach ($o->pembeli->tanggungan_pack as $item) {
+        $countTP += $item->jumlah;
+      }
+      if ($countTP > 0) {
+        $doc->Cell(7,0.8,'Tanggungan Pack',0,1,'C');
+        $doc->Cell(3,0.8,'Nama Pack','B',0,'L');
+        $doc->Cell(2,0.8,'Jumlah','B',0,'C');
+        $doc->Cell(2,0.8,'Kembali','B',1,'C');
+        foreach ($o->pembeli->tanggungan_pack as $key => $value) {
+          if ($value->jumlah > 0) {
+            $doc->Cell(3,0.8,$value->pack->nama_pack,'0',0,'L');
+            $doc->Cell(2,0.8,$value->jumlah,'0',1,'C');
+          }
+        }
+      }
+      $doc->Ln(0.5);
+      $doc->Cell(3.5,0.5,'Penerima','0',0,'C');
+      $doc->Cell(3.5,0.5,'Pengirim','0',0,'C');
+      $doc->Ln(3);
+
+      $doc->Cell(3,0.3,'         ','B',0,'C');
+      $doc->Cell(1,0.3,'         ','0',0,'L');
+      $doc->Cell(3,0.3,'         ','B',0,'C');
+      $doc->Output();
+    }else{
+      return "Invalid Orders";
     }
 
   }

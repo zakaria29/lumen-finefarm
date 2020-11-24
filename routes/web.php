@@ -99,5 +99,9 @@ $router->post("/verify-uang","OrdersController@verify_uang");
 $router->get("/setoran-pack/{id_sopir}", "OrdersController@getSetoranPack");
 $router->post("/verify-pack","OrdersController@verify_pack");
 $router->post("/pay-orders","OrdersController@pay_orders");
+$router->get("/verify-pembayaran", "OrdersController@get_verify_pembayaran");
+$router->post("/verify-pembayaran","OrdersController@verify_pembayaran");
 
-$router->post("/upload","OrdersController@upload");
+$router->post("/mutasi-pack/{id_pack}","PackController@mutasi_pack");
+$router->post("/mutasi-stok/{id_barang}","BarangController@mutasi_stok");
+$router->get("/struk/{id_orders}","OrdersController@struk");

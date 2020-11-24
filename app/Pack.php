@@ -1,6 +1,6 @@
 <?php
 namespace App;
-
+use DB;
 use Illuminate\Database\Eloquent\Model;
 
 class Pack extends Model
@@ -16,13 +16,14 @@ class Pack extends Model
     }
 
     public function log_pack(){
-      return $this->hasMany("App\LogPack","id_pack","id_pack")
-      ->orderBy("waktu","desc");
+      return $this->hasMany("App\LogPack","id_pack","id_pack");
     }
 
     public function kembali_pack(){
       return $this->hasMany("App\KembaliPack","id_pack","id_pack")
       ->orderBy("waktu","desc");
     }
+
+
 }
 ?>

@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use App\Barang;
 use App\PackBarang;
 use App\LogHargaBarang;
+use DB;
 
 class BarangController extends Controller
 {
@@ -184,6 +185,31 @@ class BarangController extends Controller
     return response([
       "message" => "Harga telah diupdate"
     ]);
+  }
+
+  public $from;
+  public $to;
+
+  public function mutasi_stok(Request $request, $id_barang)
+  {
+    $this->from = $request->from;
+    $this->to = $request->to;
+
+    return response(Barang::where("id_barang", $id_barang)
+    ->with(["log_stok_barang" => function($query){
+      $query->select("id_barang","id_supplier",
+      DB::raw("date(waktu) as waktu"),
+      DB::raw("sum(if(status = 'in', jumlah, 0)) as masuk"),
+      DB::raw("sum(if(status = 'out', jumlah, 0)) as keluar"),
+      DB::raw("if(status = 'out', stok + jumlah, stok - jumlah) as stok"),
+      DB::raw("sum(loss) as loss")
+      )
+      ->with("supplier")
+      ->whereBetween("waktu",[$this->from, $this->to])
+      ->groupBy(DB::raw("date(waktu)"))
+      ->orderBy("waktu","asc");
+    }])->first()  
+    );
   }
 }
 ?>
