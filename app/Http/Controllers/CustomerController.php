@@ -44,7 +44,8 @@ class CustomerController extends Controller
         "jatuh_tempo" => $o->jatuh_tempo,
         // "tanggungan_pembayaran" =>
         // $o->tanggungan_pembayaran->count() ? $o->tanggungan_pembayaran->nominal : "0",
-        "tanggungan_pack" => $tanggungan_pack
+        "tanggungan_pack" => $tanggungan_pack,
+        "orders" => $o->orders
       ];
       array_push($list, $item);
     }
@@ -301,7 +302,7 @@ class CustomerController extends Controller
       if ($check > 0) {
         return response([
           "auth" => true,
-          "customer" => Users::with("group_customer")
+          "customer" => Users::with(["group_customer","orders"])
           ->where("id_level","5")->where("token",$token)->first()
         ]);
       }else{
@@ -312,12 +313,29 @@ class CustomerController extends Controller
     }
   }
 
+  public function dashboard(Request $request)
+  {
+    try {
+      $token = $request->token;
+      $users = Users::where("id_level","5")
+      ->where("token",$token)
+      ->with([
+        "tanggungan_pack","tanggungan_pack.pack","unverified_bill",
+        "tanggungan_pembayaran","orders"
+      ])
+      ->first();
+      return response($users);
+    } catch (\Exception $e) {
+      return response(["error" => $e->getMessage()]);
+    }
+  }
+
   public function orders(Request $request, $id = null, $limit = null, $offset = null)
   {
     $this->find = $request->find;
     $orders = Orders::where("id_pembeli", $id)->with([
       "pembeli","users", "sopir","status_orders","log_orders",
-      "log_orders.users","log_orders.status_orders",
+      "log_orders.users","log_orders.status_orders","tagihan",
       "detail_orders","detail_orders.barang","detail_orders.pack"
     ])->where(function($q){
       $q->whereHas("detail_orders.barang", function($query){

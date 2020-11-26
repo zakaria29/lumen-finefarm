@@ -15,6 +15,11 @@ class LogGetSupplier extends Model
       return $this->belongsTo("App\Orders","id_orders");
     }
 
+    public function barang()
+    {
+      return $this->belongsTo("App\Barang","id_barang");
+    }
+
     public function supplier()
     {
       return $this->belongsTo("App\Supplier","id_supplier");

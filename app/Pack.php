@@ -24,6 +24,11 @@ class Pack extends Model
       ->orderBy("waktu","desc");
     }
 
+    public function detail_orders()
+    {
+      return $this->hasMany("App\DetailOrders","id_pack","id_pack");
+    }
+
 
 }
 ?>

@@ -40,6 +40,11 @@ class Users extends Model
       return $this->hasMany("App\Bill","id_users","id_users");
     }
 
+    public function unverified_bill()
+    {
+      return $this->hasMany("App\Bill","id_users","id_users")->where("status","0");
+    }
+
     public function tanggungan_pack()
     {
       return $this->hasMany("App\TanggunganPack","id_users","id_users");

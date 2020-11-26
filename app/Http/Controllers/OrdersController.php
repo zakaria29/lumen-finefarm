@@ -21,6 +21,7 @@ use App\Barang;
 use App\KembaliPack;
 use App\SetorUang;
 use App\PembayaranOrders;
+use DB;
 use App\FPDF\FPDF;
 
 /**
@@ -339,6 +340,8 @@ class OrdersController extends Controller
     */
     foreach ($detail as $d) {
       foreach ($d->supplier as $ds) {
+        $brg = StokBarang::where("id_barang",$d->id_barang)
+        ->where("id_supplier", $ds->id_supplier)->first();
         // table log_stok_barang
         $logStok = new LogStokBarang();
         $logStok->waktu = date("Y-m-d H:i:s");
@@ -349,6 +352,7 @@ class OrdersController extends Controller
         $logStok->jumlah = $ds->jumlah;
         $logStok->id = $id_orders;
         $logStok->status = "out";
+        $logStok->stok = $brg->stok - $ds->jumlah;
         $logStok->save();
 
         // table log_get_supplier
@@ -810,7 +814,7 @@ class OrdersController extends Controller
     $to = $request->to." 23:59:59";
     $orders = Orders::whereBetween("waktu_order", [$from, $to])->with([
       "pembeli","users", "sopir","status_orders","log_orders",
-      "log_orders.users","log_orders.status_orders",
+      "log_orders.users","log_orders.status_orders","tagihan",
       "detail_orders","detail_orders.barang","detail_orders.pack"
     ])->where(function($q){
       $q->whereHas("detail_orders.barang", function($query){
@@ -845,20 +849,55 @@ class OrdersController extends Controller
       }
   }
 
+  public $from;
+  public $to;
+  public function summary_orders(Request $request)
+  {
+    $this->from = $request->from. " 00:00:00";
+    $this->to = $request->to." 23:59:59";
+    $orders = Orders::whereBetween("waktu_order", [$this->from, $this->to])->get();
+    $piutang = 0;
+    $totalOrders = 0;
+    $modal = 0;
+    $cash = 0;
+    foreach ($orders as $p) {
+      if ($p->piutang != null ) $piutang += $p->piutang->nominal;
+      if ($p->id_status_orders >= 3) $totalOrders += $p->total_bayar;
+    }
+
+    $logUang = LogUang::whereBetween("waktu", [$this->from, $this->to])->get();
+    foreach ($logUang as $lu) {
+      if ($lu->status == 'in') $cash += $lu->nominal;
+      else if($lu->status == 'out') $modal += $lu->nominal;
+    }
+
+    $barang = Barang::with(["log_stok_barang" => function($query){
+      $query
+      ->select("id_barang",DB::raw("sum(jumlah) as jumlah"))
+      ->where("status", "out")
+      ->whereBetween("waktu", [$this->from, $this->to]);
+    }])->get();
+    return response([
+      "modal" => $modal, "cash" => $cash,
+      "total_orders" => $totalOrders, "piutang" => $piutang, "barang" => $barang
+    ]);
+  }
+
   public function get($id)
   {
     $o = Orders::where("id_orders",$id)->first();
     $itemDetail = array();
     foreach ($o->detail_orders as $d) {
       $package = array();
-      $b = Barang::where("id_barang",$d->id_barang)->first();
+      $b = Barang::with("pack")->where("id_barang",$d->id_barang)->first();
       foreach ($b->pack as $p) {
         $itemPack = [
           "id_pack" => $p->id_pack,
           "nama_pack" => $p->pack->nama_pack,
           "keterangan" => $p->pack->keterangan,
           "harga" => $p->pack->harga,
-          // "kapasitas" => $p->kapasitas * 10
+          "kapasitas_kg" => $p->kapasitas_kg,
+          "kapasitas_butir" => $p->kapasitas_butir
         ];
         array_push($package, $itemPack);
       }
@@ -893,11 +932,11 @@ class OrdersController extends Controller
     $items = [
       "id_orders" => $o->id_orders,
       "id_users" => $o->id_users,
-      "nama_kasir" => $o->users->nama,
+      "nama_kasir" => ($o->id_users == "") ? "" : $o->users->nama,
       "id_pembeli" => $o->id_pembeli,
-      "nama_pembeli" => ($o->id_pembeli == null) ? "" : $o->pembeli->nama,
+      "nama_pembeli" => ($o->id_pembeli == "") ? "" : $o->pembeli->nama,
       "id_sopir" => $o->id_sopir,
-      "nama_sopir" => ($o->id_sopir == null) ? "" : $o->sopir->nama,
+      "nama_sopir" => ($o->id_sopir == "") ? "" : $o->sopir->nama,
       "waktu_order" => $o->waktu_order,
       "waktu_pengiriman" => $o->waktu_pengiriman,
       "po" => $o->po,

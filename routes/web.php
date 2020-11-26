@@ -59,6 +59,7 @@ $router->post("/cashier/update", "CashierController@update");
 $router->delete("/cashier/drop/{id_users}", "CashierController@drop");
 $router->post("/cashier/auth", "CashierController@auth");
 $router->post("/cashier/check", "CashierController@check");
+$router->post("/cashier/dashboard", "CashierController@dashboard");
 
 $router->get("/driver", "DriverController@get_all");
 $router->post("/driver", "DriverController@get_all");
@@ -69,6 +70,7 @@ $router->post("/driver/update", "DriverController@update");
 $router->delete("/driver/drop/{id_users}", "DriverController@drop");
 $router->post("/driver/auth", "DriverController@auth");
 $router->post("/driver/check", "DriverController@check");
+$router->post("/driver/dashboard", "DriverController@dashboard");
 
 $router->get("/customer", "CustomerController@get_all");
 $router->get("/group_customer", "CustomerController@get_group_customer");
@@ -79,6 +81,7 @@ $router->post("/customer/update", "CustomerController@update");
 $router->delete("/customer/drop/{id_users}", "CustomerController@drop");
 $router->post("/customer/auth", "CustomerController@auth");
 $router->post("/customer/check", "CustomerController@check");
+$router->post("/customer/dashboard", "CustomerController@dashboard");
 $router->post("/customer-orders/{id}[/{limit}/{offset}]", "CustomerController@orders");
 $router->get("/customer-bill/{id_users}", "CustomerController@get_bill");
 
@@ -101,6 +104,7 @@ $router->post("/verify-pack","OrdersController@verify_pack");
 $router->post("/pay-orders","OrdersController@pay_orders");
 $router->get("/verify-pembayaran", "OrdersController@get_verify_pembayaran");
 $router->post("/verify-pembayaran","OrdersController@verify_pembayaran");
+$router->post("/summary-orders","OrdersController@summary_orders");
 
 $router->post("/mutasi-pack/{id_pack}","PackController@mutasi_pack");
 $router->post("/mutasi-stok/{id_barang}","BarangController@mutasi_stok");

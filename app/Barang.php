@@ -32,6 +32,10 @@ class Barang extends Model
     {
       return $this->hasMany("App\LogHargaBarang","id_barang","id_barang")
       ->orderBy("waktu","desc");
+    }
 
+    public function log_get_supplier()
+    {
+      return $this->hasMany("App\LogGetSupplier","id_barang","id_barang");
     }
 }

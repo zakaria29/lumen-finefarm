@@ -6,6 +6,7 @@ use App\DetailSupply;
 use App\LogStokBarang;
 use App\StokBarang;
 use App\LogUang;
+use App\Barang;
 
 /**
  *
@@ -45,6 +46,8 @@ class SupplyController extends Controller
         $detail->jumlah_loss = $ds->jumlah_loss;
         $detail->save();
 
+        // $brg = StokBarang::where("id_barang",$ds->id_barang)
+        // ->where("id_supplier",$request->id_supplier)->first();
         $log = new LogStokBarang();
         $log->waktu = $request->waktu;
         $log->event = "Supply Barang";
@@ -55,7 +58,8 @@ class SupplyController extends Controller
         $log->id = $supply->id_supply;
         $log->status = "in";
         $log->loss = $ds->jumlah_loss;
-        $log->save();
+        // $log->stok = $brg->stok + $ds->jumlah_utuh;
+        // $log->save();
 
         $stokBarang = StokBarang::where("id_supplier", $request->id_supplier)
         ->where("id_barang", $ds->id_barang);
@@ -64,13 +68,19 @@ class SupplyController extends Controller
           StokBarang::where("id_supplier", $request->id_supplier)
           ->where("id_barang", $ds->id_barang)
           ->update(["stok" => $stok->stok + $ds->jumlah_utuh]);
+
+          $log->stok = $stok->stok + $ds->jumlah_utuh;
         }else{
           $stok = new StokBarang();
           $stok->id_supplier = $request->id_supplier;
           $stok->id_barang = $ds->id_barang;
           $stok->stok = $ds->jumlah_utuh;
           $stok->save();
+
+          $log->stok = $ds->jumlah_utuh;
         }
+
+        $log->save();
 
 
         if ($ds->jumlah_putih > 0) {
@@ -173,6 +183,8 @@ class SupplyController extends Controller
         $detail->jumlah_loss = $ds->jumlah_loss;
         $detail->save();
 
+        // $brg = StokBarang::where("id_barang",$ds->id_barang)
+        // ->where("id_supplier", $request->id_supplier)->first();
         $log = new LogStokBarang();
         $log->waktu = $supply->waktu;
         $log->event = "Supply Barang";
@@ -183,7 +195,8 @@ class SupplyController extends Controller
         $log->id = $supply->id_supply;
         $log->status = "in";
         $log->loss = $ds->jumlah_loss;
-        $log->save();
+        // $log->stok = $brg->stok + $ds->jumlah_utuh;
+        // $log->save();
 
         $stokBarang = StokBarang::where("id_supplier", $request->id_supplier)
         ->where("id_barang", $ds->id_barang);
@@ -192,14 +205,18 @@ class SupplyController extends Controller
           StokBarang::where("id_supplier", $request->id_supplier)
           ->where("id_barang", $ds->id_barang)
           ->update(["stok" => $stok->stok + $ds->jumlah_utuh]);
+
+          $log->stok = $stok->stok + $ds->jumlah_utuh;
         }else{
           $stok = new StokBarang();
           $stok->id_supplier = $request->id_supplier;
           $stok->id_barang = $ds->id_barang;
           $stok->stok = $ds->jumlah_utuh;
           $stok->save();
-        }
 
+          $log->stok = $ds->jumlah_utuh;
+        }
+        $log->save();
 
         if ($ds->jumlah_putih > 0) {
           $stokBarang = StokBarang::where("id_supplier", $request->id_supplier)

@@ -20,6 +20,17 @@ class Orders extends Model
       return $this->hasMany("App\Bill","id_users","id_pembeli")->where("status","1");
     }
 
+    public function tagihan()
+    {
+      return $this->hasOne("App\Bill","id_orders","id_orders");
+    }
+
+    public function piutang()
+    {
+      return $this->hasOne("App\Bill","id_orders","id_orders")
+      ->where("status","<","2");
+    }
+
     public function tanggungan_pack()
     {
       return $this->hasMany("App\TanggunganPack","id_users","id_pembeli")->with("pack");
@@ -60,6 +71,11 @@ class Orders extends Model
     {
       return $this->hasMany("App\LogOrders","id_orders","id_orders")
       ->orderBy("waktu","asc");
+    }
+
+    public function log_get_supplier()
+    {
+      return $this->hasMany("App\LogGetSupplier","id_orders","id_orders");
     }
 }
  ?>

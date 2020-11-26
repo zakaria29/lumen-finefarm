@@ -21,8 +21,8 @@ class BarangController extends Controller
           "nama_pack" => $p->pack->nama_pack,
           "keterangan" => $p->pack->keterangan,
           "harga" => $p->pack->harga,
-          "kapasitas_kg" => $p->kapasitas_kg * 10,
-          "kapasitas_butir" => ($p->kapasitas_butir == 0) ? 0 : 1 / $p->kapasitas_butir
+          "kapasitas_kg" => $p->kapasitas_kg,
+          "kapasitas_butir" => $p->kapasitas_butir
         ];
         array_push($pack, $itemPack);
       }
@@ -189,11 +189,12 @@ class BarangController extends Controller
 
   public $from;
   public $to;
-
+  public $id_supplier;
   public function mutasi_stok(Request $request, $id_barang)
   {
     $this->from = $request->from;
     $this->to = $request->to;
+    $this->id_supplier = $request->id_supplier;
 
     return response(Barang::where("id_barang", $id_barang)
     ->with(["log_stok_barang" => function($query){
@@ -204,11 +205,11 @@ class BarangController extends Controller
       DB::raw("if(status = 'out', stok + jumlah, stok - jumlah) as stok"),
       DB::raw("sum(loss) as loss")
       )
-      ->with("supplier")
+      ->where("id_supplier", $this->id_supplier)
       ->whereBetween("waktu",[$this->from, $this->to])
       ->groupBy(DB::raw("date(waktu)"))
       ->orderBy("waktu","asc");
-    }])->first()  
+    }])->first()
     );
   }
 }

@@ -3,6 +3,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use App\Users;
+use App\Orders;
+use App\PembayaranOrders;
+use App\KembaliPack;
+use App\SetorUang;
+use App\Pack;
+use DB;
+
 class CashierController extends Controller
 {
   public function get_all()
@@ -232,6 +239,36 @@ class CashierController extends Controller
       }
     } catch (\Exception $e) {
       return response(["auth" => false]);
+    }
+  }
+
+  public function dashboard(Request $request)
+  {
+    try {
+      $token = $request->token;
+      $users = Users::where("id_level","3")->where("token",$token)->first();
+      $totalOrders = Orders::count();
+      $totalVerify = Orders::where("id_status_orders", "1")->count();
+      $totalSend = Orders::where("id_status_orders", "2")
+      ->where("waktu_pengiriman","<=",date("Y-m-d"))->count();
+
+      $payVerify = PembayaranOrders::where("keterangan", "0")->sum("nominal");
+      $kembaliPack = Pack::with(["kembali_pack" => function($query){
+        $query->select("id_pack",DB::raw("sum(jumlah) as jumlah"));
+      }])->get();
+      $setorUang = SetorUang::sum("nominal");
+
+      return response([
+        "users" => $users,
+        "total_orders" => $totalOrders,
+        "total_verify" => $totalVerify,
+        "total_send" => $totalSend,
+        "pay_verify" => $payVerify,
+        "kembali_pack" => $kembaliPack,
+        "setor_uang" => $setorUang
+      ]);
+    } catch (\Exception $e) {
+      return response(["error" => $e->getMessage()]);
     }
   }
 }

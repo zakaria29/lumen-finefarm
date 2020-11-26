@@ -3,6 +3,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use App\Users;
+use App\Orders;
+use App\Pack;
+use App\KembaliPack;
+use App\SetorUang;
+use App\Barang;
+use DB;
+
 class DriverController extends Controller
 {
   public function get_all()
@@ -233,6 +240,62 @@ class DriverController extends Controller
     } catch (\Exception $e) {
       return response(["auth" => false]);
     }
+  }
+
+  public $driver;
+  public function dashboard(Request $request)
+  {
+    // try {
+    //
+    // } catch (\Exception $e) {
+    //   return response(["error" => $e->getMessage()]);
+    // }
+    $token = $request->token;
+    $this->driver = Users::where("id_level","4")->where("token",$token)->first();
+    $kembaliPack = Pack::with(["kembali_pack" => function($query){
+      $query->select("id_pack", DB::raw("sum(jumlah) as jumlah"))
+      ->where("id_users", $this->driver->id_users);
+    }])->get();
+    $setorUang = SetorUang::where("id_users", $this->driver->id_users)->sum("nominal");
+    $kirimOrder = Orders::where("id_sopir", $this->driver->id_users)
+    ->where("id_status_orders","3")->count();
+    $deliveredOrder = Orders::where("id_sopir", $this->driver->id_users)
+    ->where("id_status_orders","4")->count();
+
+    // $prepareBarang = Orders::with(["log_get_supplier" => function($query){
+    //   $query->select("id_orders","id_barang","id_supplier",DB::raw("sum(jumlah) as jumlah"))
+    //   ->groupBy(["id_barang","id_supplier"]);
+    // },"log_get_supplier.barang","log_get_supplier.supplier"])
+    // ->where("id_sopir", $this->driver->id_users)
+    // ->where("id_status_orders","3")->get();
+
+    $prepareBarang = Barang::with(["log_get_supplier" => function($query){
+      $query->select("id_barang","id_supplier",DB::raw("sum(jumlah) as jumlah"))
+      ->whereIn("id_orders", function($query){
+        $query->select("id_orders")->from("orders")
+        ->where("id_sopir", $this->driver->id_users)
+        ->where("id_status_orders","3");
+      })
+      ->groupBy("id_supplier");
+    },"log_get_supplier.supplier"])->get();
+
+    $preparePack = Pack::with(["detail_orders" => function($query){
+      $query->select("id_pack", DB::raw("sum(jumlah_pack) as jumlah"))
+      ->whereIn("id_orders", function($query){
+        $query->select("id_orders")->from("orders")
+        ->where("id_sopir", $this->driver->id_users)
+        ->where("id_status_orders","3");
+      });
+    }])->get();
+    return response([
+      "users" => $this->driver,
+      "kembali_pack" => $kembaliPack,
+      "setor_uang" => $setorUang,
+      "kirim_order" => $kirimOrder,
+      "delivered_order" => $deliveredOrder,
+      "prepare_barang" => $prepareBarang,
+      "prepare_pack" => $preparePack
+    ]);
   }
 }
 
