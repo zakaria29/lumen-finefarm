@@ -8,6 +8,7 @@ use App\PembayaranOrders;
 use App\KembaliPack;
 use App\SetorUang;
 use App\Pack;
+use App\Barang;
 use DB;
 
 class CashierController extends Controller
@@ -257,6 +258,9 @@ class CashierController extends Controller
         $query->select("id_pack",DB::raw("sum(jumlah) as jumlah"));
       }])->get();
       $setorUang = SetorUang::sum("nominal");
+      $kembaliOrders = Barang::with(["detail_kembali_orders" => function($query){
+        $query->select("id_barang",DB::raw("sum(jumlah_barang) as jumlah"));
+      }])->get();
 
       return response([
         "users" => $users,
@@ -265,7 +269,8 @@ class CashierController extends Controller
         "total_send" => $totalSend,
         "pay_verify" => $payVerify,
         "kembali_pack" => $kembaliPack,
-        "setor_uang" => $setorUang
+        "setor_uang" => $setorUang,
+        "kembali_orders" => $kembaliOrders
       ]);
     } catch (\Exception $e) {
       return response(["error" => $e->getMessage()]);

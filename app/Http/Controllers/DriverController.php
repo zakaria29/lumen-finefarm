@@ -8,6 +8,7 @@ use App\Pack;
 use App\KembaliPack;
 use App\SetorUang;
 use App\Barang;
+use App\Bill;
 use DB;
 
 class DriverController extends Controller
@@ -287,6 +288,14 @@ class DriverController extends Controller
         ->where("id_status_orders","3");
       });
     }])->get();
+
+    $kembaliOrders = Barang::with(["detail_kembali_orders" => function($query){
+      $query->select("id_barang",DB::raw("sum(jumlah_barang) as jumlah"))
+      ->whereIn("id_kembali_orders", function($join){
+        $join->select("id_kembali_orders")->from("kembali_orders")
+        ->where("id_sopir", $this->driver->id_users);
+      });
+    }])->get();
     return response([
       "users" => $this->driver,
       "kembali_pack" => $kembaliPack,
@@ -294,8 +303,107 @@ class DriverController extends Controller
       "kirim_order" => $kirimOrder,
       "delivered_order" => $deliveredOrder,
       "prepare_barang" => $prepareBarang,
-      "prepare_pack" => $preparePack
+      "prepare_pack" => $preparePack,
+      "kembali_orders" => $kembaliOrders
     ]);
+  }
+
+  public $id_users;
+  public function kembali_pack($id_users)
+  {
+    $this->id_users = $id_users;
+    $data = Users::where("id_level","5")->where("status","1")
+    ->with(["kembali_pack" => function($query){
+      $query->select("id_pembeli","id_pack", DB::raw("sum(jumlah) as jumlah"))
+      ->where("id_users", $this->id_users)
+      ->groupBy("id_pack");
+    },"kembali_pack.pack"])
+    ->get();
+
+    return response($data);
+  }
+
+  public function store_kembali_pack(Request $request)
+  {
+    $kembali_pack = json_decode($request->kembali_pack);
+    foreach ($kembali_pack as $kp) {
+      $kembaliPack = new KembaliPack();
+      $kembaliPack->id_kembali_pack = "KP".time().rand(1,1000);
+      $kembaliPack->waktu = date("Y-m-d H:i:s");
+      $kembaliPack->id_pack = $kp->id_pack;
+      $kembaliPack->jumlah = $kp->jumlah;
+      $kembaliPack->id_users = $request->id_users;
+      $kembaliPack->id_pembeli = $request->id_pembeli;
+      $kembaliPack->save();
+    }
+
+    return response(["message" => "Data setoran pack telah disimpan"]);
+  }
+
+  public function drop_kembali_pack($id_pembeli,$id_pack)
+  {
+    try {
+      KembaliPack::where("id_pack", $id_pack)->where("id_pembeli", $id_pembeli)->delete();
+      return response(["message" => "Data setoran pack telah dihapus"]);
+    } catch (\Exception $e) {
+      return response(["message" => $e->getMessage()]);
+    }
+  }
+
+  public function setor_uang($id_users)
+  {
+    $this->id_users = $id_users;
+    $data = Users::where("id_level","5")->where("status","1")
+    ->with([
+      "setor_uang", "setor_uang.orders", "setor_uang.orders.pembeli",
+      "setor_uang.orders.sopir","setor_uang.orders.setor_tagihan"
+    ])
+    ->whereHas("setor_uang", function($query){
+      $query->where("id_users",$this->id_users);
+    })
+    ->get();
+
+    return response($data);
+  }
+
+  public function store_setor_uang(Request $request)
+  {
+    $setor_uang = json_decode($request->setor_uang);
+    foreach ($setor_uang as $su) {
+      // $su = id_orders
+      $o = Orders::where("id_orders", $su)->first();
+      $setorUang = new SetorUang();
+      $setorUang->id_setor = "SU".time().rand(1,1000);
+      $setorUang->waktu = date("Y-m-d H:i:s");
+      $setorUang->id_users = $request->id_users;
+      $setorUang->id_pembeli = $o->id_pembeli;
+      $setorUang->nominal = $o->total_bayar-$o->down_payment;
+      $setorUang->id_orders = $o->id_orders;
+      $setorUang->save();
+
+      $bill = Bill::where("id_orders", $su)->first();
+      $bill->status = "0";
+      $bill->save();
+    }
+
+    return response(["message" => "Data setoran pack telah disimpan"]);
+  }
+
+  public function drop_setor_uang($id_users, $id_pembeli)
+  {
+    try {
+      $setor = SetorUang::where("id_users", $id_users)->where("id_pembeli", $id_pembeli)->get();
+      foreach ($setor as $su) {
+        $bill = Bill::where("id_orders", $su->id_orders)->first();
+        $bill->status = "1";
+        $bill->save();
+      }
+      SetorUang::where("id_users", $id_users)->where("id_pembeli", $id_pembeli)
+      ->delete();
+      return response(["message" => "Data setoran uang telah dihapus"]);
+    } catch (\Exception $e) {
+      return response(["message" => $e->getMessage()]);
+    }
   }
 }
 

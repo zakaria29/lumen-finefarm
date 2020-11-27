@@ -6,6 +6,8 @@ use App\Users;
 use App\GroupCustomer;
 use App\Orders;
 use App\Bill;
+use App\TanggunganPack;
+use App\TanggunganPembayaran;
 class CustomerController extends Controller
 {
   public function get_all()
@@ -376,6 +378,27 @@ class CustomerController extends Controller
         "orders.detail_orders.pack","orders.sopir","orders.pembeli",
         "orders.status_orders","orders.users"
       ])->get()
+    );
+  }
+
+  public function tanggungan_pack()
+  {
+    return response(
+      Users::where("id_level","5")->where("status","1")
+      ->with(["tanggungan_pack" => function($query){
+        $query->where("jumlah",">","0");
+      },"tanggungan_pack.pack"])->get()
+    );
+  }
+
+  public function tanggungan_pembayaran()
+  {
+    return response(
+      Users::where("id_level","5")->where("status","1")
+      ->with(["bill" => function($query){
+        $query->where("status", "1");
+      }])
+      ->get()
     );
   }
 }

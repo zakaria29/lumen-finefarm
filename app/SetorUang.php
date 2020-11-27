@@ -16,6 +16,11 @@ class SetorUang extends Model
       return $this->belongsTo("App\Users","id_users");
     }
 
+    public function orders()
+    {
+      return $this->belongsTo("App\Orders","id_orders");
+    }
+
     public function pembeli()
     {
       return $this->belongsTo("App\Users","id_pembeli","id_users");

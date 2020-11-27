@@ -71,6 +71,12 @@ $router->delete("/driver/drop/{id_users}", "DriverController@drop");
 $router->post("/driver/auth", "DriverController@auth");
 $router->post("/driver/check", "DriverController@check");
 $router->post("/driver/dashboard", "DriverController@dashboard");
+$router->get("/kembali-pack/{id_users}","DriverController@kembali_pack");
+$router->post("/kembali-pack", "DriverController@store_kembali_pack");
+$router->delete("/kembali-pack/{id_pembeli}/{id_pack}", "DriverController@drop_kembali_pack");
+$router->get("/setor-uang/{id_users}","DriverController@setor_uang");
+$router->post("/setor-uang","DriverController@store_setor_uang");
+$router->delete("/setor-uang/{id_users}/{id_pembeli}", "DriverController@drop_setor_uang");
 
 $router->get("/customer", "CustomerController@get_all");
 $router->get("/group_customer", "CustomerController@get_group_customer");
@@ -84,6 +90,8 @@ $router->post("/customer/check", "CustomerController@check");
 $router->post("/customer/dashboard", "CustomerController@dashboard");
 $router->post("/customer-orders/{id}[/{limit}/{offset}]", "CustomerController@orders");
 $router->get("/customer-bill/{id_users}", "CustomerController@get_bill");
+$router->get("/customer-pack", "CustomerController@tanggungan_pack");
+$router->get("/customer-tagihan", "CustomerController@tanggungan_pembayaran");
 
 $router->get("/orders/get/{id_orders}", "OrdersController@get");
 $router->post("/orders/new_order", "OrdersController@create_new_order");
@@ -109,3 +117,7 @@ $router->post("/summary-orders","OrdersController@summary_orders");
 $router->post("/mutasi-pack/{id_pack}","PackController@mutasi_pack");
 $router->post("/mutasi-stok/{id_barang}","BarangController@mutasi_stok");
 $router->get("/struk/{id_orders}","OrdersController@struk");
+
+$router->get("/kembali-orders","OrdersController@getKembaliOrders");
+$router->post("/kembali-orders","OrdersController@kembali_orders");
+$router->post("/verify-kembali-orders","OrdersController@verify_kembali_orders");

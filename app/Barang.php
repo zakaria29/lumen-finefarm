@@ -38,4 +38,9 @@ class Barang extends Model
     {
       return $this->hasMany("App\LogGetSupplier","id_barang","id_barang");
     }
+
+    public function detail_kembali_orders()
+    {
+      return $this->hasMany("App\DetailKembaliOrders","id_barang","id_barang");
+    }
 }

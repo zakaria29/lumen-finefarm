@@ -23,6 +23,8 @@ use App\SetorUang;
 use App\PembayaranOrders;
 use DB;
 use App\FPDF\FPDF;
+use App\KembaliOrders;
+use App\DetailKembaliOrders;
 
 /**
  *
@@ -595,6 +597,26 @@ class OrdersController extends Controller
       $kembaliPack->save();
     }
 
+    /** pengembalian order */
+
+    $detail_kembali_orders = json_decode($request->detail_kembali_orders);
+    if (count($detail_kembali_orders) > 0) {
+      $kembali = new KembaliOrders();
+      $kembali->id_kembali_orders = "IKO".time().rand(1,1000);
+      $kembali->id_orders = $id_orders;
+      $kembali->id_sopir = $request->id_users;
+      $kembali->waktu = date("Y-m-d H:i:s");
+      $kembali->save();
+
+      foreach ($detail_kembali_orders as $dk) {
+        $detail = new DetailKembaliOrders();
+        $detail->id_kembali_orders = $kembali->id_kembali_orders;
+        $detail->id_barang = $dk->id_barang;
+        $detail->jumlah_barang = $dk->jumlah_barang;
+        $detail->save();
+      }
+    }
+
     return response([
       "message" => "Order telah diterima"
     ]);
@@ -973,6 +995,115 @@ class OrdersController extends Controller
       KembaliPack::where("id_users",$id_sopir)->with(["pack","sopir","pembeli"])
       ->orderBy("waktu","asc")->get()
     );
+  }
+
+  public function getKembaliOrders()
+  {
+    return response(
+      KembaliOrders::with([
+        "detail_kembali_orders","detail_kembali_orders.barang",
+        "orders","orders.pembeli","orders.sopir"
+      ])->orderBy("waktu","asc")->get()
+    );
+  }
+
+  public function kembali_orders(Request $request)
+  {
+    $kembali = new KembaliOrders();
+    $kembali->id_kembali_orders = "IKO".time().rand(1,1000);
+    $kembali->id_orders = $request->id_orders;
+    $kembali->id_sopir = $request->id_sopir;
+    $kembali->waktu = date("Y-m-d H:i:s");
+    $kembali->save();
+
+    $detail_kembali_orders = json_decode($request->detail_kembali_orders);
+    foreach ($detail_kembali_orders as $dk) {
+      $detail = new DetailKembaliOrders();
+      $detail->id_kembali_orders = $kembali->id_kembali_orders;
+      $detail->id_barang = $dk->id_barang;
+      $detail->jumlah_barang = $dk->jumlah_barang;
+      $detail->save();
+    }
+
+    return response(["message" => "Data pengembalian order berhasil disimpan"]);
+  }
+
+  public function verify_kembali_orders(Request $request)
+  {
+    $kembali = KembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->first();
+
+    $detail = json_decode($request->detail_kembali_orders);
+    /***
+    request -> id_kembali_orders, id_users
+    format json:
+    [{"id_barang": "IDB222", "jumlah_barang": "10", "id_supplier": "IDS9999"}]
+    */
+    foreach ($detail as $det) {
+      /** edit detail_orders */
+      $detailOrders = DetailOrders::where("id_orders", $kembali->id_orders)
+      ->where("id_barang", $det->id_barang)->first();
+       $jumlah_barang = $detailOrders->jumlah_barang - $det->jumlah_barang;
+
+       DetailOrders::where("id_orders", $kembali->id_orders)
+       ->where("id_barang", $det->id_barang)
+       ->update(["jumlah_barang" => $jumlah_barang]);
+
+
+      /** new log stok barang */
+      $logStok = new LogStokBarang();
+      $logStok->waktu = date("Y-m-d H:i:s");
+      $logStok->event = "Pengembalian Stok Barang";
+      $logStok->id_users = $request->id_users;
+      $logStok->id_barang = $det->id_barang;
+      $logStok->id_supplier = $det->id_supplier;
+      $logStok->jumlah = $det->jumlah_barang;
+      $logStok->id = $kembali->id_orders;
+      $logStok->status = "in";
+
+      // update stok_barang
+      $stokBarang = StokBarang::where("id_supplier", $det->id_supplier)
+      ->where("id_barang", $det->id_barang);
+      if ($stokBarang->count() > 0) {
+        $stok = $stokBarang->first();
+        StokBarang::where("id_supplier", $det->id_supplier)
+        ->where("id_barang", $det->id_barang)
+        ->update(["stok" => $stok->stok + $det->jumlah_barang]);
+
+        $logStok->stok = $stok->stok + $det->jumlah_barang;
+      }else{
+        $stok = new StokBarang();
+        $stok->id_supplier = $det->id_supplier;
+        $stok->id_barang = $det->id_barang;
+        $stok->stok = $det->jumlah_barang;
+        $stok->save();
+
+        $logStok->stok = $det->jumlah_barang;
+      }
+      $logStok->save();
+    }
+
+    /** get total_bayar */
+    $detailOrders = DetailOrders::where("id_orders", $kembali->id_orders)->get();
+    $total = 0;
+    foreach ($detailOrders as $det) {
+      $total += ($det->harga_beli * $det->jumlah_barang) + ($det->harga_pack * $det->jumlah_pack);
+    }
+
+    /** edit total_bayar pada Orders */
+    $orders = Orders::where("id_orders", $kembali->id_orders)->first();
+    $orders->total_bayar = $total;
+    $orders->save();
+
+    /** update bill */
+    $bill = Bill::where("id_orders", $kembali->id_orders)->first();
+    $bill->nominal = $orders->total_bayar - $orders->down_payment;
+    $bill->save();
+
+    /** drop kembali orders */
+    KembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->delete();
+    DetailKembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->delete();
+
+    return response(["message" => "Data Pengembalian Order telah diverifikasi"]);
   }
 
   public function struk($id_orders)

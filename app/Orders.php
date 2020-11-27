@@ -25,6 +25,11 @@ class Orders extends Model
       return $this->hasOne("App\Bill","id_orders","id_orders");
     }
 
+    public function setor_tagihan()
+    {
+      return $this->hasOne("App\Bill","id_orders","id_orders")->where("status","0");
+    }
+
     public function piutang()
     {
       return $this->hasOne("App\Bill","id_orders","id_orders")
