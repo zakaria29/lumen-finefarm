@@ -3,6 +3,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use App\Users;
+use App\Orders;
+use App\Barang;
+use App\Supplier;
+use DB;
 class OwnerController extends Controller
 {
   public function get_all()
@@ -233,6 +237,38 @@ class OwnerController extends Controller
       }
     } catch (\Exception $e) {
       return response(["auth" => false]);
+    }
+  }
+
+  public function dashboard(Request $request)
+  {
+    try {
+      $token = $request->token;
+      $users = Users::where("id_level","1")->where("token",$token)->first();
+      $totalOrders = Orders::count();
+      $hargaBarang = Barang::with(["current_harga"])->get();
+      $stokBarang = Barang::with(["stok" => function($query){
+        $query->select("id_barang",DB::raw("sum(stok) as stok"))
+        ->groupBy("id_barang");
+      }])->get();
+      $pengguna = [
+        ["role" => "Customer",
+        "count" => Users::where("status","1")->where("id_level","5")->count()],
+        ["role" => "Cashier",
+        "count" => Users::where("status","1")->where("id_level","3")->count()],
+        ["role" => "Driver",
+        "count" => Users::where("status","1")->where("id_level","4")->count()],
+        ["role" => "Supplier", "count" => Supplier::count()],
+      ];
+      return response([
+        "users" => $users,
+        "total_orders" => $totalOrders,
+        "harga_barang" => $hargaBarang,
+        "stok_barang" => $stokBarang,
+        "pengguna" => $pengguna
+      ]);
+    } catch (\Exception $e) {
+      return response(["error" => $e->getMessage()]);
     }
   }
 }

@@ -79,5 +79,10 @@ class Users extends Model
     {
       return $this->hasMany("App\SetorUang","id_users","id_users");
     }
+
+    public function lock_pack_barang()
+    {
+      return $this->hasMany("App\LockPackBarang","id_users","id_users");
+    }
 }
  ?>

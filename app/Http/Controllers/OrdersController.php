@@ -97,6 +97,7 @@ class OrdersController extends Controller
       $detail->jumlah_pack = $do->jumlah_pack;
       $detail->harga_beli = $do->harga_beli;
       $detail->harga_pack = $do->harga_pack;
+      $detail->is_lock = $do->is_lock;
       $detail->save();
 
       $rekap = new RekapDetailOrders();
@@ -225,12 +226,12 @@ class OrdersController extends Controller
     $orders->save();
 
     // insert log order
-    $logOrder = new LogOrders();
+    /*$logOrder = new LogOrders();
     $logOrder->id_orders = $orders->id_orders;
     $logOrder->waktu = date("Y-m-d H:i:s");
     $logOrder->id_users = $orders->id_pembeli;
     $logOrder->id_status_orders = $orders->id_status_orders;
-    $logOrder->save();
+    $logOrder->save();*/
 
     LogUang::where("id_log_uang", $orders->id_orders)->delete();
 
@@ -268,6 +269,7 @@ class OrdersController extends Controller
       $detail->jumlah_pack = $do->jumlah_pack;
       $detail->harga_beli = $do->harga_beli;
       $detail->harga_pack = $do->harga_pack;
+      $detail->is_lock = $do->is_lock;
       $detail->save();
 
       $rekap = new RekapDetailOrders();
@@ -897,7 +899,8 @@ class OrdersController extends Controller
       $query
       ->select("id_barang",DB::raw("sum(jumlah) as jumlah"))
       ->where("status", "out")
-      ->whereBetween("waktu", [$this->from, $this->to]);
+      ->whereBetween("waktu", [$this->from, $this->to])
+      ->groupBy("id_barang");
     }])->get();
     return response([
       "modal" => $modal, "cash" => $cash,
@@ -933,7 +936,8 @@ class OrdersController extends Controller
         // "nama_pack" => $d->pack->nama_pack,
         "jumlah_pack" => $d->jumlah_pack,
         "harga_pack" => $d->harga_pack,
-        "beli_pack" => ($d->harga_pack > 0) ? "1" : ""
+        "beli_pack" => ($d->harga_pack > 0) ? "1" : "",
+        "is_lock" => ($d->is_lock) ? true : false
       ];
       array_push($itemDetail, $item);
     }

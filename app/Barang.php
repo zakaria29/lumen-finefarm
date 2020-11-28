@@ -15,6 +15,10 @@ class Barang extends Model
       return $this->hasMany("App\StokBarang","id_barang","id_barang");
     }
 
+    public function current_stok(){
+      return $this->hasMany("App\StokBarang","id_barang","id_barang")->sum("stok");
+    }
+
     public function pack(){
       return $this->hasMany("App\PackBarang","id_barang","id_barang");
     }
@@ -31,6 +35,12 @@ class Barang extends Model
     public function harga_barang()
     {
       return $this->hasMany("App\LogHargaBarang","id_barang","id_barang")
+      ->orderBy("waktu","desc");
+    }
+
+    public function current_harga()
+    {
+      return $this->hasOne("App\LogHargaBarang","id_barang","id_barang")
       ->orderBy("waktu","desc");
     }
 

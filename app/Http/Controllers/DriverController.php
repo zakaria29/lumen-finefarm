@@ -255,7 +255,7 @@ class DriverController extends Controller
     $this->driver = Users::where("id_level","4")->where("token",$token)->first();
     $kembaliPack = Pack::with(["kembali_pack" => function($query){
       $query->select("id_pack", DB::raw("sum(jumlah) as jumlah"))
-      ->where("id_users", $this->driver->id_users);
+      ->where("id_users", $this->driver->id_users)->groupBy("id_pack");
     }])->get();
     $setorUang = SetorUang::where("id_users", $this->driver->id_users)->sum("nominal");
     $kirimOrder = Orders::where("id_sopir", $this->driver->id_users)
@@ -286,7 +286,7 @@ class DriverController extends Controller
         $query->select("id_orders")->from("orders")
         ->where("id_sopir", $this->driver->id_users)
         ->where("id_status_orders","3");
-      });
+      })->groupBy("id_pack");
     }])->get();
 
     $kembaliOrders = Barang::with(["detail_kembali_orders" => function($query){
@@ -294,7 +294,7 @@ class DriverController extends Controller
       ->whereIn("id_kembali_orders", function($join){
         $join->select("id_kembali_orders")->from("kembali_orders")
         ->where("id_sopir", $this->driver->id_users);
-      });
+      })->groupBy("id_barang");
     }])->get();
     return response([
       "users" => $this->driver,

@@ -8,6 +8,8 @@ use App\Orders;
 use App\Bill;
 use App\TanggunganPack;
 use App\TanggunganPembayaran;
+use App\LockPackBarang;
+use App\PackBarang;
 class CustomerController extends Controller
 {
   public function get_all()
@@ -24,6 +26,21 @@ class CustomerController extends Controller
           "jumlah" => $tp->jumlah
         ];
         array_push($tanggungan_pack, $itemPack);
+      }
+
+      $lock = array();
+      foreach ($o->lock_pack_barang as $l) {
+        $itemLock = [
+          "id_users" => $l->id_users,
+          "id_barang" => $l->id_barang,
+          "nama_barang" => $l->barang->nama_barang,
+          "id_pack" => $l->id_pack,
+          "nama_pack" => $l->pack->nama_pack,
+          "harga" => $l->harga,
+          "kapasitas_kg" => $l->kapasitas_kg,
+          "kapasitas_butir" => $l->kapasitas_butir
+        ];
+        array_push($lock, $itemLock);
       }
       $item = [
         "id_users" => $o->id_users,
@@ -47,7 +64,8 @@ class CustomerController extends Controller
         // "tanggungan_pembayaran" =>
         // $o->tanggungan_pembayaran->count() ? $o->tanggungan_pembayaran->nominal : "0",
         "tanggungan_pack" => $tanggungan_pack,
-        "orders" => $o->orders
+        "orders" => $o->orders,
+        "lock_pack_barang" => $lock
       ];
       array_push($list, $item);
     }
@@ -75,6 +93,22 @@ class CustomerController extends Controller
         ];
         array_push($tanggungan_pack, $itemPack);
       }
+
+      $lock = array();
+      foreach ($o->lock_pack_barang as $l) {
+        $itemLock = [
+          "id_users" => $l->id_users,
+          "id_barang" => $l->id_barang,
+          "nama_barang" => $l->barang->nama_barang,
+          "id_pack" => $l->id_pack,
+          "nama_pack" => $l->pack->nama_pack,
+          "harga" => $l->harga,
+          "kapasitas_kg" => $l->kapasitas_kg,
+          "kapasitas_butir" => $l->kapasitas_butir
+        ];
+        array_push($lock, $itemLock);
+      }
+
       $item = [
         "id_users" => $o->id_users,
         "nama" => $o->nama,
@@ -95,7 +129,8 @@ class CustomerController extends Controller
         "margin_group" => $o->group_customer->margin,
         "jatuh_tempo" => $o->jatuh_tempo,
         // "tanggungan_pembayaran" => $o->tanggungan_pembayaran->nominal,
-        "tanggungan_pack" => $tanggungan_pack
+        "tanggungan_pack" => $tanggungan_pack,
+        "lock_pack_barang" => $lock
       ];
       array_push($list, $item);
     }
@@ -136,6 +171,21 @@ class CustomerController extends Controller
         array_push($tanggungan_pack, $itemPack);
       }
 
+      $lock = array();
+      foreach ($o->lock_pack_barang as $l) {
+        $itemLock = [
+          "id_users" => $l->id_users,
+          "id_barang" => $l->id_barang,
+          "nama_barang" => $l->barang->nama_barang,
+          "id_pack" => $l->id_pack,
+          "nama_pack" => $l->pack->nama_pack,
+          "harga" => $l->harga,
+          "kapasitas_kg" => $l->kapasitas_kg,
+          "kapasitas_butir" => $l->kapasitas_butir
+        ];
+        array_push($lock, $itemLock);
+      }
+
       $item = [
         "id_users" => $o->id_users,
         "nama" => $o->nama,
@@ -156,7 +206,8 @@ class CustomerController extends Controller
         "margin_group" => $o->group_customer->margin,
         "jatuh_tempo" => $o->jatuh_tempo,
         // "tanggungan_pembayaran" => $o->tanggungan_pembayaran->nominal,
-        "tanggungan_pack" => $tanggungan_pack
+        "tanggungan_pack" => $tanggungan_pack,
+        "lock_pack_barang" => $lock
       ];
       array_push($list, $item);
     }
@@ -304,7 +355,7 @@ class CustomerController extends Controller
       if ($check > 0) {
         return response([
           "auth" => true,
-          "customer" => Users::with(["group_customer","orders"])
+          "customer" => Users::with(["group_customer","orders","lock_pack_barang"])
           ->where("id_level","5")->where("token",$token)->first()
         ]);
       }else{
@@ -323,7 +374,7 @@ class CustomerController extends Controller
       ->where("token",$token)
       ->with([
         "tanggungan_pack","tanggungan_pack.pack","unverified_bill",
-        "tanggungan_pembayaran","orders"
+        "tanggungan_pembayaran","orders",
       ])
       ->first();
       return response($users);
@@ -400,6 +451,31 @@ class CustomerController extends Controller
       }])
       ->get()
     );
+  }
+
+  public function store_lock_pack_barang(Request $request)
+  {
+    try {
+      $id_users = $request->id_users;
+      LockPackBarang::where("id_users", $id_users)->delete();
+      $lock_pack_barang = json_decode($request->lock_pack_barang);
+      foreach ($lock_pack_barang as $lpb) {
+        $pb = PackBarang::where("id_barang", $lpb->id_barang)
+        ->where("id_pack", $lpb->id_pack)->first();
+        $lock = new LockPackBarang();
+        $lock->id_users = $id_users;
+        $lock->id_barang = $lpb->id_barang;
+        $lock->id_pack = $lpb->id_pack;
+        $lock->harga = $lpb->harga;
+        $lock->kapasitas_kg = ($pb == null) ? "0" : $pb->kapasitas_kg;
+        $lock->kapasitas_butir = ($pb == null) ? "0" : $pb->kapasitas_butir;
+        $lock->save();
+      }
+      return response(["message" => "Data lock user berhasil disimpan"]);
+    } catch (\Exception $e) {
+      return response(["message" => $e->getMessage()]);
+    }
+
   }
 }
 

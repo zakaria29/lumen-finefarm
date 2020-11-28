@@ -255,11 +255,13 @@ class CashierController extends Controller
 
       $payVerify = PembayaranOrders::where("keterangan", "0")->sum("nominal");
       $kembaliPack = Pack::with(["kembali_pack" => function($query){
-        $query->select("id_pack",DB::raw("sum(jumlah) as jumlah"));
+        $query->select("id_pack",DB::raw("sum(jumlah) as jumlah"))
+        ->groupBy("id_pack");
       }])->get();
       $setorUang = SetorUang::sum("nominal");
       $kembaliOrders = Barang::with(["detail_kembali_orders" => function($query){
-        $query->select("id_barang",DB::raw("sum(jumlah_barang) as jumlah"));
+        $query->select("id_barang",DB::raw("sum(jumlah_barang) as jumlah"))
+        ->groupBy("id_barang");
       }])->get();
 
       return response([

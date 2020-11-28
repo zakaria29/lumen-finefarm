@@ -50,6 +50,7 @@ $router->post("/owner/update", "OwnerController@update");
 $router->delete("/owner/drop/{id_users}", "OwnerController@drop");
 $router->post("/owner/auth", "OwnerController@auth");
 $router->post("/owner/check", "OwnerController@check");
+$router->post("/owner/dashboard", "OwnerController@dashboard");
 
 $router->get("/cashier", "CashierController@get_all");
 $router->get("/cashier/{limit}/{offset}", "CashierController@get");
@@ -92,6 +93,7 @@ $router->post("/customer-orders/{id}[/{limit}/{offset}]", "CustomerController@or
 $router->get("/customer-bill/{id_users}", "CustomerController@get_bill");
 $router->get("/customer-pack", "CustomerController@tanggungan_pack");
 $router->get("/customer-tagihan", "CustomerController@tanggungan_pembayaran");
+$router->post("/lock-pack-barang", "CustomerController@store_lock_pack_barang");
 
 $router->get("/orders/get/{id_orders}", "OrdersController@get");
 $router->post("/orders/new_order", "OrdersController@create_new_order");
