@@ -803,7 +803,7 @@ class OrdersController extends Controller
       $logUang = LogUang::where("id_log_uang", $pay->id_orders);
       if ($logUang->count() > 0) {
         $lu = $logUang->first();
-        $lu->nominal += $su->nominal;
+        $lu->nominal += $pay->nominal;
         $lu->save();
       }else{
         $lu = new LogUang();
