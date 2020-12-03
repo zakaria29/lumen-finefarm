@@ -115,6 +115,7 @@ $router->post("/pay-orders","OrdersController@pay_orders");
 $router->get("/verify-pembayaran", "OrdersController@get_verify_pembayaran");
 $router->post("/verify-pembayaran","OrdersController@verify_pembayaran");
 $router->post("/summary-orders","OrdersController@summary_orders");
+$router->post("/grafik","OrdersController@grafik");
 
 $router->post("/mutasi-pack/{id_pack}","PackController@mutasi_pack");
 $router->post("/mutasi-stok/{id_barang}","BarangController@mutasi_stok");

@@ -316,7 +316,7 @@ class DriverController extends Controller
     ->with(["kembali_pack" => function($query){
       $query->select("id_pembeli","id_pack", DB::raw("sum(jumlah) as jumlah"))
       ->where("id_users", $this->id_users)
-      ->groupBy("id_pack");
+      ->groupBy(["id_pack","id_pembeli"]);
     },"kembali_pack.pack"])
     ->get();
 

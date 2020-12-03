@@ -122,9 +122,9 @@ class OrdersController extends Controller
   {
     $this->find = $request->find;
     $orders = Orders::where("id_status_orders", "1")->with([
-      "pembeli","users", "sopir","status_orders","log_orders",
-      "log_orders.users","log_orders.status_orders",
-      "detail_orders","detail_orders.barang","detail_orders.pack"
+      "pembeli","users", "sopir","status_orders","log_orders","pembeli.group_customer",
+      "log_orders.users","log_orders.status_orders","detail_orders.barang.current_harga",
+      "detail_orders","detail_orders.barang","detail_orders.pack",
     ])->where(function($q){
       $q->whereHas("detail_orders.barang", function($query){
         $query->where("nama_barang","like","%$this->find%");
@@ -298,12 +298,45 @@ class OrdersController extends Controller
     $orders->id_status_orders = "2";
     $orders->save();
 
+    $num = RekapDetailOrders::where("id_orders",$id)->max("num_rekap");
+    DetailOrders::where("id_orders", $id)->delete();
+    $detail_orders = json_decode($request->detail_orders);
+    $total = 0;
+    foreach ($detail_orders as $do) {
+      $detail = new DetailOrders();
+      $detail->id_orders = $id;
+      $detail->id_barang = $do->id_barang;
+      $detail->id_pack = $do->id_pack;
+      $detail->jumlah_barang = $do->jumlah_barang;
+      $detail->jumlah_pack = $do->jumlah_pack;
+      $detail->harga_beli = $do->harga_beli;
+      $detail->harga_pack = $do->harga_pack;
+      $detail->is_lock = $do->is_lock;
+      $detail->save();
+
+      $total += ($do->jumlah_barang * $do->harga_beli) + ($do->jumlah_pack * $do->harga_pack);
+
+      $rekap = new RekapDetailOrders();
+      $rekap->id_orders = $id;
+      $rekap->id_barang = $do->id_barang;
+      $rekap->id_pack = $do->id_pack;
+      $rekap->jumlah_barang = $do->jumlah_barang;
+      $rekap->jumlah_pack = $do->jumlah_pack;
+      $rekap->harga_beli = $do->harga_beli;
+      $rekap->harga_pack = $do->harga_pack;
+      $rekap->id_users = $request->id_users;
+      $rekap->num_rekap = $num + 1;
+      $rekap->save();
+    }
+
     $logOrder = new LogOrders();
     $logOrder->id_orders = $id;
     $logOrder->waktu = date("Y-m-d H:i:s");
     $logOrder->id_users = $request->id_users;
     $logOrder->id_status_orders = $orders->id_status_orders;
     $logOrder->save();
+
+    Orders::where("id_orders", $id)->update(["total_bayar" => $total]);
 
     return response([
       "message" => "Data order telah disetujui"
@@ -1108,6 +1141,16 @@ class OrdersController extends Controller
     DetailKembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->delete();
 
     return response(["message" => "Data Pengembalian Order telah diverifikasi"]);
+  }
+
+  public function grafik(Request $request)
+  {
+    $from = $request->from." 00:00:00";
+    $to = $request->to." 23:59:59";
+    $data = Orders::whereBetween("waktu_order",[$from, $to])
+    ->select(DB::raw("date(waktu_order) as waktu"), DB::raw("sum(total_bayar) as total"))
+    ->groupBy(DB::raw("date(waktu_order)"))->get();
+    return response($data);
   }
 
   public function struk($id_orders)
