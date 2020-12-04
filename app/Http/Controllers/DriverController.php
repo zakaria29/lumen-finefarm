@@ -405,6 +405,37 @@ class DriverController extends Controller
       return response(["message" => $e->getMessage()]);
     }
   }
+
+  public function edit_profil(Request $request)
+  {
+    try {
+      if ($request->has("password")) {
+        Users::where("id_users", $request->id_users)
+        ->update([
+          "nama" => $request->nama,
+          "alamat" => $request->alamat,
+          "contact" => $request->contact,
+          "email" => $request->email,
+          "username" => $request->username,
+          "password" => Crypt::encrypt($request->password)
+        ]);
+      } else {
+        Users::where("id_users", $request->id_users)
+        ->update([
+          "nama" => $request->nama,
+          "alamat" => $request->alamat,
+          "contact" => $request->contact,
+          "email" => $request->email,
+          "username" => $request->username
+        ]);
+      }
+
+      return response(["message" => "Data berhasil diubah"]);
+    } catch (\Exception $e) {
+      return response(["message" => $e->getMessage()]);
+    }
+
+  }
 }
 
  ?>
