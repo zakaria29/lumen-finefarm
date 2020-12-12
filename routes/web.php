@@ -19,6 +19,7 @@ $router->get("/pack", "PackController@get_all");
 $router->get("/pack/{limit}/{offset}", "PackController@get");
 $router->post("/pack/save", "PackController@store");
 $router->post("/pack/update", "PackController@update");
+$router->post("/pack/kapasitas", "PackController@store_kapasitas");
 $router->delete("/pack/drop/{id_pack}", "PackController@drop");
 
 $router->get("/barang", "BarangController@get_all");
@@ -27,6 +28,7 @@ $router->post("/barang/save", "BarangController@store");
 $router->post("/barang/update", "BarangController@update");
 $router->delete("/barang/drop/{id_barang}", "BarangController@drop");
 $router->post("/barang/update_harga", "BarangController@update_harga");
+$router->get("/barang_export", "BarangController@export");
 
 $router->get("/supplier", "SupplierController@get_all");
 $router->get("/supplier/{limit}/{offset}", "SupplierController@get");
@@ -106,6 +108,7 @@ $router->post("/verify-orders/{limit}/{offset}", "OrdersController@verify_order"
 $router->post("/accept-orders/{id}", "OrdersController@accept_order");
 $router->post("/prepare-orders/{limit}/{offset}", "OrdersController@prepare_order");
 $router->post("/send-orders/{id_orders}", "OrdersController@send_order");
+$router->post("/kirim-orders", "OrdersController@kirim_order");
 $router->post("/ready-send-orders/{id}/{limit}/{offset}", "OrdersController@ready_send_order");
 $router->get("/deliver-orders/{id_orders}/{id_users}", "OrdersController@deliver_order");
 $router->post("/coming-orders/{id}/{limit}/{offset}", "OrdersController@coming_order");

@@ -11,6 +11,16 @@ class Pack extends Model
     public $incrementing = false;
     public $timestamps = false;
 
+    public function kapasitas_kg()
+    {
+      return $this->hasMany("App\KapasitasPack","id_pack","id_pack")->where("satuan","1");
+    }
+
+    public function kapasitas_butir()
+    {
+      return $this->hasMany("App\KapasitasPack","id_pack","id_pack")->where("satuan","2");
+    }
+
     public function barang(){
       return $this->hasMany("App\PackBarang","id_pack","id_pack");
     }

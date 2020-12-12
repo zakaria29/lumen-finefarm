@@ -24,8 +24,10 @@ $app = new Laravel\Lumen\Application(
 );
 
 $app->configure('filesystems');
+$app->configure('queue');
 $app->withFacades();
 class_alias('Illuminate\Support\Facades\Storage', 'Storage');
+class_alias('Maatwebsite\Excel\Facades\Excel', 'Excel');
 
 $app->withEloquent();
 
@@ -85,6 +87,7 @@ $app->register(App\Providers\AuthServiceProvider::class);
 $app->register(App\Providers\EventServiceProvider::class);
 $app->register(Illuminate\Filesystem\FilesystemServiceProvider::class);
 $app->register(App\Providers\GoogleDriveServiceProvider::class);
+$app->register(Maatwebsite\Excel\ExcelServiceProvider::class);
 
 
 /*

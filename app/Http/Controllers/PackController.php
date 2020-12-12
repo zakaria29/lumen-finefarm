@@ -3,52 +3,54 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Pack;
 use App\PackBarang;
+use App\KapasitasPack;
 use DB;
 
 class PackController extends Controller
 {
   public function get_all()
   {
-    $pack = Pack::all();
-    $list = array();
-
-    foreach ($pack as $b) {
-      $item = [
-        "id_pack" => $b->id_pack,
-        "nama_pack" => $b->nama_pack,
-        "keterangan" => $b->keterangan,
-        "stok" => $b->stok,
-        "harga" => $b->harga
-      ];
-      array_push($list, $item);
-    }
-
+    $pack = Pack::with(["kapasitas_kg","kapasitas_butir"])->get();
     return response([
-      "pack" => $list,
+      "pack" => $pack,
       "count" => Pack::count()
     ]);
   }
 
   public function get($limit = 10, $offset = 0)
   {
-    $pack = Pack::take($limit)->skip($offset);
-    $list = array();
-
-    foreach ($pack as $b) {
-      $item = [
-        "id_pack" => $b->id_pack,
-        "nama_pack" => $b->nama_pack,
-        "keterangan" => $b->keterangan,
-        "stok" => $b->stok,
-        "harga" => $b->harga
-      ];
-      array_push($list, $item);
-    }
+    $pack = Pack::with(["kapasitas_kg","kapasitas_butir"])->take($limit)->skip($offset);
 
     return response([
-      "pack" => $list,
+      "pack" => $pack,
       "count" => Pack::count()
     ]);
+  }
+
+  public function store_kapasitas(Request $request)
+  {
+    try {
+      KapasitasPack::where("id_pack", $request->id_pack)
+      ->where("satuan", $request->satuan)->delete();
+      $kapasitas_pack = json_decode($request->kapasitas_pack);
+      foreach ($kapasitas_pack as $kap) {
+        $kapasitas = new KapasitasPack();
+        $kapasitas->id_pack = $request->id_pack;
+        $kapasitas->kapasitas = $kap->kapasitas;
+        $kapasitas->jumlah = $kap->jumlah;
+        $kapasitas->satuan = $request->satuan;
+        $kapasitas->save();
+      }
+
+      return response([
+        "message" => "Data kapasitas pack berhasil ditambahkan"
+      ]);
+    } catch (\Exception $e) {
+      return response([
+        "message" => $e->getMessage()
+      ]);
+    }
+
   }
 
   public function store(Request $request)
@@ -97,6 +99,7 @@ class PackController extends Controller
     try {
       Pack::where("id_pack", $id)->delete();
       PackBarang::where("id_pack", $id)->delete();
+      KapasitasPack::where("id_pack", $id)->delete();
 
       return response([
         "message" => "Data pack berhasil dihapus"

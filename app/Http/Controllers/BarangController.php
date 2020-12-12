@@ -5,6 +5,8 @@ use App\Barang;
 use App\PackBarang;
 use App\LogHargaBarang;
 use DB;
+use App\Exports\TestExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class BarangController extends Controller
 {
@@ -22,7 +24,9 @@ class BarangController extends Controller
           "keterangan" => $p->pack->keterangan,
           "harga" => $p->pack->harga,
           "kapasitas_kg" => $p->kapasitas_kg,
-          "kapasitas_butir" => $p->kapasitas_butir
+          "kapasitas_butir" => $p->kapasitas_butir,
+          "capacity_kg" => $p->pack->kapasitas_kg,
+          "capacity_butir" => $p->pack->kapasitas_butir,
         ];
         array_push($pack, $itemPack);
       }
@@ -192,8 +196,8 @@ class BarangController extends Controller
   public $id_supplier;
   public function mutasi_stok(Request $request, $id_barang)
   {
-    $this->from = $request->from;
-    $this->to = $request->to;
+    $this->from = $request->from." 00:00:00";
+    $this->to = $request->to." 23:59:59";
     $this->id_supplier = $request->id_supplier;
 
     return response(Barang::where("id_barang", $id_barang)
@@ -211,6 +215,16 @@ class BarangController extends Controller
       ->orderBy("waktu","asc");
     }])->first()
     );
+  }
+
+  public function export()
+  {
+    // return Excel::download(new TestExport, 'test.xlsx');
+    return Excel::create("test", function($excel){
+      $excel->sheet("Data Barang", function($sheet){
+        $sheet->fromArray(Barang::all());
+      });
+    })->download("xlsx");
   }
 }
 ?>

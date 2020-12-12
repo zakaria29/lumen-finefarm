@@ -442,6 +442,108 @@ class OrdersController extends Controller
     ]);
   }
 
+  public function kirim_order(Request $request)
+  {
+    /***
+    format json:
+
+    kirim_order = [
+      {
+        id_orders: "IDO999",
+        ambil_stok: [
+          { id_supplier:"IDS2323", id_barang:"IDB111", jumlah:100 },
+          { id_supplier:"IDS2222", id_barang:"IDB222", jumlah:50 }
+        ]
+      },
+      {
+        id_orders: "IDO101",
+        detail_orders: [ { id_supplier:"IDS2323", id_barang:"IDB111", jumlah:100 } ]
+      }
+    ]
+
+    id_users: "IDU222201"
+    */
+    $kirim_order = json_decode($request->kirim_order);
+    foreach ($kirim_order as $kirim) {
+      /** update status dan insert log */
+      $orders = Orders::where("id_orders", $kirim->id_orders)->first();
+      $orders->id_status_orders = "3";
+      $orders->save();
+
+      $logOrder = new LogOrders();
+      $logOrder->id_orders = $kirim->id_orders;
+      $logOrder->waktu = date("Y-m-d H:i:s");
+      $logOrder->id_users = $request->id_users;
+      $logOrder->id_status_orders = $orders->id_status_orders;
+      $logOrder->save();
+
+
+      foreach ($kirim->get_stok as $as) {
+        $brg = StokBarang::where("id_barang",$as->id_barang)
+        ->where("id_supplier", $as->id_supplier)->first();
+        // table log_stok_barang
+        $logStok = new LogStokBarang();
+        $logStok->waktu = date("Y-m-d H:i:s");
+        $logStok->event = "Ambil Stok Barang";
+        $logStok->id_users = $request->id_users;
+        $logStok->id_barang = $as->id_barang;
+        $logStok->id_supplier = $as->id_supplier;
+        $logStok->jumlah = $as->jumlah;
+        $logStok->id = $kirim->id_orders;
+        $logStok->status = "out";
+        $logStok->stok = $brg->stok - $as->jumlah;
+        $logStok->save();
+
+        // table log_get_supplier
+        $logSupplier = new LogGetSupplier();
+        $logSupplier->waktu = date("Y-m-d H:i:s");
+        $logSupplier->id_orders = $kirim->id_orders;
+        $logSupplier->id_supplier = $as->id_supplier;
+        $logSupplier->id_barang = $as->id_barang;
+        $logSupplier->jumlah = $as->jumlah;
+        $logSupplier->save();
+
+        // update stok_barang
+        $stok = StokBarang::where("id_supplier", $as->id_supplier)
+        ->where("id_barang", $as->id_barang)->first();
+        StokBarang::where("id_supplier", $as->id_supplier)
+        ->where("id_barang", $as->id_barang)
+        ->update(["stok" => $stok->stok - $as->jumlah]);
+      }
+
+      if ($orders->tipe_pembayaran == "0") {
+        // insert to bill dan tanggungan pembayaran
+        $nominal = $orders->total_bayar - $orders->down_payment;
+
+        $bill = new Bill();
+        $bill->id_bill = "BILL".time().rand(1,1000);
+        $bill->id_orders = $orders->id_orders;
+        $bill->id_users = $orders->id_pembeli;
+        $bill->nominal = $nominal;
+        $bill->status = "1"; // aktif sebagai tagihan
+        $bill->save();
+
+        $tb = TanggunganPembayaran::where("id_users", $orders->id_pembeli);
+        if ($tb->count() > 0) {
+          // edit tambah tanggungan
+          $tanggungan = $tb->first();
+          TanggunganPembayaran::where("id_users", $orders->id_pembeli)
+          ->update(["nominal" => $tanggungan->nominal + $nominal]);
+        }else{
+          // buat data tanggungan
+          $tanggungan = new TanggunganPembayaran();
+          $tanggungan->id_users = $orders->id_pembeli;
+          $tanggungan->nominal = $nominal;
+          $tanggungan->save();
+        }
+      }
+    }
+
+    return response([
+      "message" => "Order berhasil dikirim"
+    ]);
+  }
+
   public function ready_send_order(Request $request, $id, $limit, $offset)
   {
     $this->find = $request->find;
