@@ -5,6 +5,7 @@ use App\Pack;
 use App\PackBarang;
 use App\KapasitasPack;
 use DB;
+use App\Exports\MutasiPack;
 
 class PackController extends Controller
 {
@@ -152,6 +153,12 @@ class PackController extends Controller
       }])->first();
     }
     return response($mutasi);
+  }
+
+  public function export_mutasi_pack($id_pack, $from, $to, $id_pembeli = null)
+  {
+    return (new MutasiPack($id_pack, $from, $to, $id_pembeli))
+    ->download("Mutasi Pack-".time().".xlsx");
   }
 }
 ?>

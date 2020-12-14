@@ -25,6 +25,8 @@ use DB;
 use App\FPDF\FPDF;
 use App\KembaliOrders;
 use App\DetailKembaliOrders;
+use App\Exports\Order;
+use PDF;
 
 /**
  *
@@ -1008,6 +1010,11 @@ class OrdersController extends Controller
       }
   }
 
+  public function export_orders($from, $to, $find = null)
+  {
+    return (new Order($from, $to, $find))->download("Orders-".time().".xlsx");
+  }
+
   public $from;
   public $to;
   public function summary_orders(Request $request)
@@ -1363,6 +1370,108 @@ class OrdersController extends Controller
       return "Invalid Orders";
     }
 
+  }
+
+  public function kuitansi($id_pembeli, $from, $to)
+  {
+    $from = $from." 00:00:00";
+    $to = $to." 23:59:59";
+    $orders = Orders::whereBetween("waktu_order", [$from, $to])
+    ->where("id_pembeli",$id_pembeli)->where("id_status_orders",">","0")
+    ->with([
+      "detail_orders","detail_orders.barang","pembeli"
+    ])->orderBy("waktu_order","asc")->get();
+
+    $total = 0;
+    $pembeli = "";
+    $data = [];
+    foreach ($orders as $o) {
+      $pembeli = $o->pembeli->nama;
+      foreach ($o->detail_orders as $do) {
+        $item = [
+          "tanggal" => $this->convertDate($o->waktu_order),
+          "customer" => $o->pembeli->nama,
+          "harga" => number_format($do->harga_beli,0,",","."),
+          "qty" => $do->jumlah_barang,
+          "total" => number_format($do->harga_beli * $do->jumlah_barang,0,",",".")
+        ];
+        array_push($data, $item);
+        $total += ($do->harga_beli * $do->jumlah_barang);
+      }
+    }
+
+    $terbilang = $this->terbilang($total). " rupiah";
+
+    $pdf = PDF::loadview('kuitansi',[
+      "total" => number_format($total,0,",","."),
+      "pembeli" => $pembeli,
+      "terbilang" => $terbilang,
+      "data" => $data,
+      "sekarang" => $this->convertDate(date("Y-m-d"))
+    ]);
+    return $pdf->download('Kuitansi-'.time());
+  }
+
+  public function penyebut($nilai) {
+		$nilai = abs($nilai);
+		$huruf = array("", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas");
+		$temp = "";
+		if ($nilai < 12) {
+			$temp = " ". $huruf[$nilai];
+		} else if ($nilai <20) {
+			$temp = $this->penyebut($nilai - 10). " belas";
+		} else if ($nilai < 100) {
+			$temp = $this->penyebut($nilai/10)." puluh". $this->penyebut($nilai % 10);
+		} else if ($nilai < 200) {
+			$temp = " seratus" . $this->penyebut($nilai - 100);
+		} else if ($nilai < 1000) {
+			$temp = $this->penyebut($nilai/100) . " ratus" . $this->penyebut($nilai % 100);
+		} else if ($nilai < 2000) {
+			$temp = " seribu" . $this->penyebut($nilai - 1000);
+		} else if ($nilai < 1000000) {
+			$temp = $this->penyebut($nilai/1000) . " ribu" . $this->penyebut($nilai % 1000);
+		} else if ($nilai < 1000000000) {
+			$temp = $this->penyebut($nilai/1000000) . " juta" . $this->penyebut($nilai % 1000000);
+		} else if ($nilai < 1000000000000) {
+			$temp = $this->penyebut($nilai/1000000000) . " milyar" . $this->penyebut(fmod($nilai,1000000000));
+		} else if ($nilai < 1000000000000000) {
+			$temp = $this->penyebut($nilai/1000000000000) . " trilyun" . $this->penyebut(fmod($nilai,1000000000000));
+		}
+		return $temp;
+	}
+
+	public function terbilang($nilai) {
+		if($nilai<0) {
+			$hasil = "minus ". trim($this->penyebut($nilai));
+		} else {
+			$hasil = trim($this->penyebut($nilai));
+		}
+		return $hasil;
+	}
+
+  public function convertDate($tanggal){
+    $bulan = array (
+  		1 =>   'Januari',
+  		'Februari',
+  		'Maret',
+  		'April',
+  		'Mei',
+  		'Juni',
+  		'Juli',
+  		'Agustus',
+  		'September',
+  		'Oktober',
+  		'November',
+  		'Desember'
+  	);
+    $onlyDate = explode(' ', $tanggal);
+  	$pecahkan = explode('-', $onlyDate[0]);
+
+  	// variabel pecahkan 0 = tanggal
+  	// variabel pecahkan 1 = bulan
+  	// variabel pecahkan 2 = tahun
+
+  	return $pecahkan[2] . ' ' . $bulan[ (int)$pecahkan[1] ] . ' ' . $pecahkan[0];
   }
 }
 

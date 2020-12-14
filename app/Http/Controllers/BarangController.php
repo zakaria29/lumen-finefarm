@@ -5,8 +5,9 @@ use App\Barang;
 use App\PackBarang;
 use App\LogHargaBarang;
 use DB;
-use App\Exports\TestExport;
+use App\Exports\MutasiStok;
 use Maatwebsite\Excel\Facades\Excel;
+
 
 class BarangController extends Controller
 {
@@ -217,14 +218,13 @@ class BarangController extends Controller
     );
   }
 
-  public function export()
+  public function export_mutasi_stok($id_barang, $id_supplier, $from, $to)
   {
-    // return Excel::download(new TestExport, 'test.xlsx');
-    return Excel::create("test", function($excel){
-      $excel->sheet("Data Barang", function($sheet){
-        $sheet->fromArray(Barang::all());
-      });
-    })->download("xlsx");
+    $from = $from." 00:00:00";
+    $to = $to." 23:59:59";
+    return (new MutasiStok($id_barang, $id_supplier, $from, $to))
+    ->download("Mutasi Stok-".time().".xlsx");
   }
+
 }
 ?>

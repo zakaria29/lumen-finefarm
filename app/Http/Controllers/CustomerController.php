@@ -12,6 +12,11 @@ use App\LockPackBarang;
 use App\PackBarang;
 class CustomerController extends Controller
 {
+  public function only_customer()
+  {
+    $customer = Users::where("id_level","5")->get();
+    return response(["customer" => $customer]);
+  }
   public function get_all()
   {
     $list = array();
@@ -442,6 +447,37 @@ class CustomerController extends Controller
     );
   }
 
+  public function find_tanggungan_pack(Request $request)
+  {
+    $this->find = $request->find;
+    return response(
+      Users::where("id_level","5")->where("status","1")
+      ->with(["tanggungan_pack" => function($query){
+        $query->where("jumlah",">","0");
+      },"tanggungan_pack.pack" => function($query){
+        $find = $this->find;
+        // $query->where("nama_pack","like","%$find%");
+      }])
+      ->where("nama","like","%$this->find%")
+      ->get()
+    );
+  }
+
+  public function save_tanggungan_pack(Request $request)
+  {
+    $id_users = $request->id_users;
+    $tanggungan_pack = json_decode($request->tanggungan_pack);
+    TanggunganPack::where("id_users", $id_users)->delete();
+    foreach ($tanggungan_pack as $t) {
+      $tp = new TanggunganPack();
+      $tp->id_users = $id_users;
+      $tp->id_pack = $t->id_pack;
+      $tp->jumlah = $t->jumlah;
+      $tp->save();
+    }
+    return response(["message" => "Tanggungan Pack telah diubah"]);
+  }
+
   public function tanggungan_pembayaran()
   {
     return response(
@@ -449,6 +485,18 @@ class CustomerController extends Controller
       ->with(["bill" => function($query){
         $query->where("status", "1");
       }])
+      ->get()
+    );
+  }
+
+  public function find_tanggungan_pembayaran(Request $request)
+  {
+    return response(
+      Users::where("id_level","5")->where("status","1")
+      ->with(["bill" => function($query){
+        $query->where("status","<","2");
+      }])
+      ->where("nama","like","%$request->find%")
       ->get()
     );
   }

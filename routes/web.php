@@ -84,6 +84,7 @@ $router->post("/setor-uang","DriverController@store_setor_uang");
 $router->delete("/setor-uang/{id_users}/{id_pembeli}", "DriverController@drop_setor_uang");
 
 $router->get("/customer", "CustomerController@get_all");
+$router->get("/customers", "CustomerController@only_customer");
 $router->get("/group_customer", "CustomerController@get_group_customer");
 $router->get("/customer/{limit}/{offset}", "CustomerController@get");
 $router->post("/customer/{limit}/{offset}", "CustomerController@find");
@@ -96,7 +97,10 @@ $router->post("/customer/dashboard", "CustomerController@dashboard");
 $router->post("/customer-orders/{id}[/{limit}/{offset}]", "CustomerController@orders");
 $router->get("/customer-bill/{id_users}", "CustomerController@get_bill");
 $router->get("/customer-pack", "CustomerController@tanggungan_pack");
+$router->post("/customer-pack", "CustomerController@find_tanggungan_pack");
+$router->post("/save-customer-pack", "CustomerController@save_tanggungan_pack");
 $router->get("/customer-tagihan", "CustomerController@tanggungan_pembayaran");
+$router->post("/customer-tagihan", "CustomerController@find_tanggungan_pembayaran");
 $router->post("/lock-pack-barang", "CustomerController@store_lock_pack_barang");
 $router->post("/customer/profil", "CustomerController@edit_profil");
 
@@ -121,11 +125,18 @@ $router->post("/pay-orders","OrdersController@pay_orders");
 $router->get("/verify-pembayaran", "OrdersController@get_verify_pembayaran");
 $router->post("/verify-pembayaran","OrdersController@verify_pembayaran");
 $router->post("/summary-orders","OrdersController@summary_orders");
+$router->get("/export-orders/{from}/{to}[/{find}]",
+"OrdersController@export_orders");
 $router->post("/grafik","OrdersController@grafik");
 
 $router->post("/mutasi-pack/{id_pack}","PackController@mutasi_pack");
+$router->get("/export-mutasi-pack/{id_pack}/{from}/{to}[/{id_pembeli}]",
+"PackController@export_mutasi_pack");
 $router->post("/mutasi-stok/{id_barang}","BarangController@mutasi_stok");
+$router->get("/export-mutasi-stok/{id_barang}/{id_supplier}/{from}/{to}",
+"BarangController@export_mutasi_stok");
 $router->get("/struk/{id_orders}","OrdersController@struk");
+$router->get("/kuitansi/{id_pembeli}/{from}/{to}","OrdersController@kuitansi");
 
 $router->get("/kembali-orders","OrdersController@getKembaliOrders");
 $router->post("/kembali-orders","OrdersController@kembali_orders");

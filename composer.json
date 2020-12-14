@@ -10,7 +10,8 @@
         "vlucas/phpdotenv": "~2.2",
         "league/flysystem-aws-s3-v3": "^1.0",
         "nao-pon/flysystem-google-drive": "^1.1",
-        "maatwebsite/excel": "^3.1"
+        "maatwebsite/excel": "^3.1",
+        "barryvdh/laravel-dompdf": "^0.8.7"
     },
     "require-dev": {
         "fzaninotto/faker": "~1.4",
