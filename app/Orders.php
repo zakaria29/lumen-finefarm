@@ -10,7 +10,7 @@ class Orders extends Model
     protected $fillable = [
       "id_orders","id_pembeli","id_users","waktu_order","waktu_pengiriman",
       "po","invoice","id_status_orders","tgl_jatuh_tempo","waktu",
-      "tipe_pembayaran","total_bayar","id_sopir","down_payment","catatan"
+      "tipe_pembayaran","total_bayar","id_sopir","down_payment","catatan","kendala"
     ];
     public $incrementing = false;
     public $timestamps = false;

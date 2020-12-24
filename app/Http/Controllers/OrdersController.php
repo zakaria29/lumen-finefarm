@@ -1346,7 +1346,7 @@ class OrdersController extends Controller
         $countTP += $item->jumlah;
       }
       if ($countTP > 0) {
-        $doc->Cell(7,0.8,'Tanggungan Pack',0,1,'C');
+        $doc->Cell(7,0.8,'Tanggungan Pack Sebelumnya',0,1,'C');
         $doc->Cell(3,0.8,'Nama Pack','B',0,'L');
         $doc->Cell(2,0.8,'Jumlah','B',0,'C');
         $doc->Cell(2,0.8,'Kembali','B',1,'C');
@@ -1365,7 +1365,7 @@ class OrdersController extends Controller
       $doc->Cell(3,0.3,'         ','B',0,'C');
       $doc->Cell(1,0.3,'         ','0',0,'L');
       $doc->Cell(3,0.3,'         ','B',0,'C');
-      $doc->Output();
+      $doc->Output("$o->invoice.pdf","D");
     }else{
       return "Invalid Orders";
     }
@@ -1472,6 +1472,21 @@ class OrdersController extends Controller
   	// variabel pecahkan 2 = tahun
 
   	return $pecahkan[2] . ' ' . $bulan[ (int)$pecahkan[1] ] . ' ' . $pecahkan[0];
+  }
+
+  public function kendala(Request $request)
+  {
+    try {
+      $id_orders = $request->id_orders;
+      $orders = Orders::where("id_orders", $id_orders)->first();
+      $orders->kendala = $request->kendala;
+      $orders->save();
+      return response(["message" => "Kendala berhasil disimpan"]);
+    } catch (\Exception $e) {
+      return response(["message" => $e->getMessage()]);
+    }
+
+
   }
 }
 

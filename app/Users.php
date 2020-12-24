@@ -10,7 +10,7 @@ class Users extends Model
     protected $fillable = [
       "id_users","nama","alamat","contact","email","image","id_level",
       "status","username","password","margin","nama_instansi",
-      "bidang_usaha","id_group_customer","token","jatuh_tempo"
+      "bidang_usaha","id_group_customer","token","jatuh_tempo","inisial"
     ];
     public $incrementing = false;
     public $timestamps = false;

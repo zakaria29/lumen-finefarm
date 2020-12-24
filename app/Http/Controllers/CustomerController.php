@@ -66,6 +66,7 @@ class CustomerController extends Controller
         "nama_group_customer" => $o->group_customer->nama_group_customer,
         "margin_group" => $o->group_customer->margin,
         "jatuh_tempo" => $o->jatuh_tempo,
+        "inisial" => $o->inisial,
         // "tanggungan_pembayaran" =>
         // $o->tanggungan_pembayaran->count() ? $o->tanggungan_pembayaran->nominal : "0",
         "tanggungan_pack" => $tanggungan_pack,
@@ -133,6 +134,7 @@ class CustomerController extends Controller
         "nama_group_customer" => $o->group_customer->nama_group_customer,
         "margin_group" => $o->group_customer->margin,
         "jatuh_tempo" => $o->jatuh_tempo,
+        "inisial" => $o->inisial,
         // "tanggungan_pembayaran" => $o->tanggungan_pembayaran->nominal,
         "tanggungan_pack" => $tanggungan_pack,
         "lock_pack_barang" => $lock
@@ -210,6 +212,7 @@ class CustomerController extends Controller
         "nama_group_customer" => $o->group_customer->nama_group_customer,
         "margin_group" => $o->group_customer->margin,
         "jatuh_tempo" => $o->jatuh_tempo,
+        "inisial" => $o->inisial,
         // "tanggungan_pembayaran" => $o->tanggungan_pembayaran->nominal,
         "tanggungan_pack" => $tanggungan_pack,
         "lock_pack_barang" => $lock
@@ -251,6 +254,7 @@ class CustomerController extends Controller
       $customer->bidang_usaha = $request->bidang_usaha;
       $customer->id_group_customer = $request->id_group_customer;
       $customer->jatuh_tempo = $request->jatuh_tempo;
+      $customer->inisial = $request->inisial;
       $customer->save();
       $request->file('image')->move(storage_path('image'), $fileName);
       return response([
@@ -291,6 +295,7 @@ class CustomerController extends Controller
       $customer->bidang_usaha = $request->bidang_usaha;
       $customer->id_group_customer = $request->id_group_customer;
       $customer->jatuh_tempo = $request->jatuh_tempo;
+      $customer->inisial = $request->inisial;
       $customer->save();
       return response([
         "message" => "Data customer berhasil diubah"
@@ -551,6 +556,57 @@ class CustomerController extends Controller
       }
 
       return response(["message" => "Data berhasil diubah"]);
+    } catch (\Exception $e) {
+      return response(["message" => $e->getMessage()]);
+    }
+  }
+
+  public function get_tanggungan($id_users)
+  {
+    $bill = Bill::where("id_users", $id_users)->where("status","1")->with(["orders"])->get();
+    $tp = TanggunganPack::where("id_users", $id_users)->where("jumlah",">","0")->get();
+    return response([
+      "tanggungan_pembayaran" => $bill,
+      "tanggungan_pack" => $tp
+    ]);
+  }
+
+  public function reset_tanggungan(Request $request)
+  {
+    try {
+      $id_users = $request->id_users;
+      $tanggungan_pack = json_decode($request->tanggungan_pack);
+      TanggunganPack::where("id_users", $id_users)->delete();
+      foreach ($tanggungan_pack as $t) {
+        $tp = new TanggunganPack();
+        $tp->id_users = $id_users;
+        $tp->id_pack = $t->id_pack;
+        $tp->jumlah = $t->jumlah;
+        $tp->save();
+      }
+
+      $tanggungan_pembayaran = json_decode($request->tanggungan_pembayaran);
+      TanggunganPembayaran::where("id_users", $id_users)->delete();
+      Bill::where("id_users", $id_users)->delete();
+      $total = 0;
+      foreach ($tanggungan_pembayaran as $tb) {
+        $bill = new Bill();
+        $bill->id_bill = $tb->id_bill;
+        $bill->id_orders = $tb->id_orders;
+        $bill->id_users = $id_users;
+        $bill->nominal = $tb->nominal;
+        $bill->status = $tb->status;
+        $bill->save();
+
+        $total += $tb->nominal;
+      }
+
+      $tPem = new TanggunganPembayaran();
+      $tPem->id_users = $id_users;
+      $tPem->nominal = $total;
+      $tPem->save();
+
+      return response(["message" => "Data tanggungan berhasil disimpan"]);
     } catch (\Exception $e) {
       return response(["message" => $e->getMessage()]);
     }

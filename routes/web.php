@@ -103,6 +103,10 @@ $router->get("/customer-tagihan", "CustomerController@tanggungan_pembayaran");
 $router->post("/customer-tagihan", "CustomerController@find_tanggungan_pembayaran");
 $router->post("/lock-pack-barang", "CustomerController@store_lock_pack_barang");
 $router->post("/customer/profil", "CustomerController@edit_profil");
+$router->get("/customer-tanggungan/{id_users}", "CustomerController@get_tanggungan");
+$router->post("/customer-tanggungan", "CustomerController@reset_tanggungan");
+
+
 
 $router->get("/orders/get/{id_orders}", "OrdersController@get");
 $router->post("/orders/new_order", "OrdersController@create_new_order");
@@ -128,6 +132,7 @@ $router->post("/summary-orders","OrdersController@summary_orders");
 $router->get("/export-orders/{from}/{to}[/{find}]",
 "OrdersController@export_orders");
 $router->post("/grafik","OrdersController@grafik");
+$router->post("/kendala","OrdersController@kendala");
 
 $router->post("/mutasi-pack/{id_pack}","PackController@mutasi_pack");
 $router->get("/export-mutasi-pack/{id_pack}/{from}/{to}[/{id_pembeli}]",
