@@ -86,6 +86,8 @@ $router->delete("/setor-uang/{id_users}/{id_pembeli}", "DriverController@drop_se
 $router->get("/customer", "CustomerController@get_all");
 $router->get("/customers", "CustomerController@only_customer");
 $router->get("/group_customer", "CustomerController@get_group_customer");
+$router->post("/group_customer", "CustomerController@save_group_customer");
+$router->delete("/group_customer/{id_group_customer}", "CustomerController@drop_group_customer");
 $router->get("/customer/{limit}/{offset}", "CustomerController@get");
 $router->post("/customer/{limit}/{offset}", "CustomerController@find");
 $router->post("/customer/save", "CustomerController@store");
@@ -105,6 +107,7 @@ $router->post("/lock-pack-barang", "CustomerController@store_lock_pack_barang");
 $router->post("/customer/profil", "CustomerController@edit_profil");
 $router->get("/customer-tanggungan/{id_users}", "CustomerController@get_tanggungan");
 $router->post("/customer-tanggungan", "CustomerController@reset_tanggungan");
+$router->post("/customer-order", "CustomerController@create_new_order");
 
 
 
@@ -146,3 +149,8 @@ $router->get("/kuitansi/{id_pembeli}/{from}/{to}","OrdersController@kuitansi");
 $router->get("/kembali-orders","OrdersController@getKembaliOrders");
 $router->post("/kembali-orders","OrdersController@kembali_orders");
 $router->post("/verify-kembali-orders","OrdersController@verify_kembali_orders");
+$router->post("/kembali_orders[/{limit}/{offset}]","OrdersController@get_kembali_orders");
+
+$router->get("/retur-order","OrdersController@getReturOrder");
+$router->post("/retur-order","OrdersController@verify_retur_order");
+$router->post("/retur_orders[/{limit}/{offset}]","OrdersController@get_retur_orders");

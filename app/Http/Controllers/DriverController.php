@@ -6,9 +6,11 @@ use App\Users;
 use App\Orders;
 use App\Pack;
 use App\KembaliPack;
+use App\KembaliOrders;
 use App\SetorUang;
 use App\Barang;
 use App\Bill;
+use App\LogHargaBarang;
 use DB;
 
 class DriverController extends Controller
@@ -289,13 +291,16 @@ class DriverController extends Controller
       })->groupBy("id_pack");
     }])->get();
 
+    $this->id_kembali_orders =  KembaliOrders::where("status","0")->pluck("id_kembali_orders");
     $kembaliOrders = Barang::with(["detail_kembali_orders" => function($query){
       $query->select("id_barang",DB::raw("sum(jumlah_barang) as jumlah"))
       ->whereIn("id_kembali_orders", function($join){
         $join->select("id_kembali_orders")->from("kembali_orders")
-        ->where("id_sopir", $this->driver->id_users);
+        ->where("id_sopir", $this->driver->id_users)
+        ->whereIn("id_kembali_orders", $this->id_kembali_orders);
       })->groupBy("id_barang");
     }])->get();
+    $currentUpdate = LogHargaBarang::max("waktu");
     return response([
       "users" => $this->driver,
       "kembali_pack" => $kembaliPack,
@@ -304,7 +309,8 @@ class DriverController extends Controller
       "delivered_order" => $deliveredOrder,
       "prepare_barang" => $prepareBarang,
       "prepare_pack" => $preparePack,
-      "kembali_orders" => $kembaliOrders
+      "kembali_orders" => $kembaliOrders,
+      "currentUpdate" => $currentUpdate,
     ]);
   }
 

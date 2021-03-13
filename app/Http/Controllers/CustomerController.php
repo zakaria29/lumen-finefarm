@@ -10,6 +10,12 @@ use App\TanggunganPack;
 use App\TanggunganPembayaran;
 use App\LockPackBarang;
 use App\PackBarang;
+use App\LogOrders;
+use App\DetailOrders;
+use App\RekapDetailOrders;
+use App\Pack;
+use DB;
+
 class CustomerController extends Controller
 {
   public function only_customer()
@@ -330,6 +336,39 @@ class CustomerController extends Controller
     ]);
   }
 
+  public function save_group_customer(Request $request)
+  {
+    try {
+      $action = $request->action;
+      if ($action == "insert") {
+        GroupCustomer::create([
+          "nama_group_customer" => $request->nama_group_customer,
+          "margin" => $request->margin
+        ]);
+      }elseif ($action == "update") {
+        GroupCustomer::where("id_group_customer", $request->id_group_customer)
+        ->update([
+          "nama_group_customer" => $request->nama_group_customer,
+          "margin" => $request->margin
+        ]);
+      }
+      return response(["message" => "Data Group Customer berhasil disimpan"]);
+    } catch (\Exception $e) {
+      return response(["error" => $e->getMessage()]);
+    }
+  }
+
+  public function drop_group_customer($id_group_customer)
+  {
+    try {
+      GroupCustomer::where("id_group_customer", $id_group_customer)->delete();
+      return response(["message" => "Data Group Customer berhasil dihapus"]);
+    } catch (\Exception $e) {
+      return response(["error" => $e->getMessage()]);
+    }
+
+  }
+
   public function auth(Request $request)
   {
     $username = $request->username;
@@ -455,17 +494,24 @@ class CustomerController extends Controller
   public function find_tanggungan_pack(Request $request)
   {
     $this->find = $request->find;
-    return response(
-      Users::where("id_level","5")->where("status","1")
-      ->with(["tanggungan_pack" => function($query){
-        $query->where("jumlah",">","0");
-      },"tanggungan_pack.pack" => function($query){
-        $find = $this->find;
-        // $query->where("nama_pack","like","%$find%");
-      }])
-      ->where("nama","like","%$this->find%")
-      ->get()
-    );
+    $customer = Users::where("id_level","5")->where("status","1")
+    ->with(["tanggungan_pack" => function($query){
+      $query->where("jumlah",">","0");
+    },"tanggungan_pack.pack" => function($query){
+      $find = $this->find;
+      // $query->where("nama_pack","like","%$find%");
+    }])
+    ->where("nama","like","%$this->find%")
+    ->get();
+
+    $pack = Pack::with(["tanggungan_pack" => function($query){
+      $query->select("id_pack",DB::raw("sum(jumlah) as jumlah"))
+      ->groupBy("id_pack");
+    }])->get();
+    return response([
+      "customer" => $customer,
+      "pack" => $pack
+    ]);
   }
 
   public function save_tanggungan_pack(Request $request)
@@ -610,7 +656,72 @@ class CustomerController extends Controller
     } catch (\Exception $e) {
       return response(["message" => $e->getMessage()]);
     }
+  }
 
+  public function create_new_order(Request $request)
+  {
+    // insert orders
+    $orders = new Orders();
+    $orders->id_orders = "IDO".time().rand(1,1000);
+    $orders->id_pembeli = $request->id_pembeli;
+    $orders->id_users = null;
+    $orders->waktu_order = $request->waktu_order;
+    $orders->waktu_pengiriman = $request->waktu_pengiriman;
+    $orders->po = $request->po;
+    $orders->invoice = $request->invoice;
+    $orders->id_status_orders = "1";
+    $orders->tgl_jatuh_tempo = $request->tgl_jatuh_tempo;
+    $orders->catatan = $request->catatan;
+    if ($request->tipe_pembayaran == "2") {
+      // pakai DP
+      $orders->tipe_pembayaran = "0";
+      $orders->down_payment = $request->down_payment;
+    } else {
+      $orders->tipe_pembayaran = $request->tipe_pembayaran;
+      $orders->down_payment = "0";
+    }
+    $orders->total_bayar = null;
+    $orders->id_sopir = null;
+    $orders->save();
+
+    // insert log order
+    $logOrder = new LogOrders();
+    $logOrder->id_orders = $orders->id_orders;
+    $logOrder->waktu = $orders->waktu_order;
+    $logOrder->id_users = $orders->id_pembeli;
+    $logOrder->id_status_orders = $orders->id_status_orders;
+    $logOrder->save();
+
+
+    $detail_orders = json_decode($request->detail_orders);
+    foreach ($detail_orders as $do) {
+      $detail = new DetailOrders();
+      $detail->id_orders = $orders->id_orders;
+      $detail->id_barang = $do->id_barang;
+      $detail->id_pack = null; // $do->id_pack;
+      $detail->jumlah_barang = $do->jumlah_barang;
+      $detail->jumlah_pack = 0; // $do->jumlah_pack;
+      $detail->harga_beli = 0; // $do->harga_beli;
+      $detail->harga_pack = 0 ; // $do->harga_pack;
+      $detail->is_lock = $do->is_lock;
+      $detail->save();
+
+      $rekap = new RekapDetailOrders();
+      $rekap->id_orders = $orders->id_orders;
+      $rekap->id_barang = $do->id_barang;
+      $rekap->id_pack = null; // $do->id_pack;
+      $rekap->jumlah_barang = $do->jumlah_barang;
+      $rekap->jumlah_pack = 0; // $do->jumlah_pack;
+      $rekap->harga_beli = 0; // $do->harga_beli;
+      $rekap->harga_pack = 0; // $do->harga_pack;
+      $rekap->id_users = $orders->id_pembeli;
+      $rekap->num_rekap = "1";
+      $rekap->save();
+    }
+
+    return response([
+      "message" => "Data order berhasil ditambahkan"
+    ]);
   }
 }
 

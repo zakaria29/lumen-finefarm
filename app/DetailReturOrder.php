@@ -3,11 +3,12 @@ namespace App;
 
 use Illuminate\Database\Eloquent\Model;
 
-class DetailKembaliOrders extends Model
+class DetailReturOrder extends Model
 {
-    protected $table = "detail_kembali_orders";
+    protected $table = "detail_retur_order";
     protected $fillable = [
-      "id_kembali_orders","id_barang","jumlah_barang","id_pack","jumlah_pack"
+      "id_retur_order","id_barang","id_pack","jumlah_barang",
+      "jumlah_pack","harga_beli","harga_pack","is_lock"
     ];
     public $incrementing = false;
     public $timestamps = false;

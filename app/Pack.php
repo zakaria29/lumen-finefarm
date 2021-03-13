@@ -39,6 +39,10 @@ class Pack extends Model
       return $this->hasMany("App\DetailOrders","id_pack","id_pack");
     }
 
+    public function tanggungan_pack()
+    {
+      return $this->hasMany("App\TanggunganPack","id_pack","id_pack");
+    }
 
 }
 ?>

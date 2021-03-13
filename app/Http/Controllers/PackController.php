@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use App\Pack;
 use App\PackBarang;
 use App\KapasitasPack;
+use App\LogPack;
 use DB;
 use App\Exports\MutasiPack;
 
@@ -119,7 +120,7 @@ class PackController extends Controller
   {
     $this->from = $request->from." 00:00:00";
     $this->to = $request->to." 23:59:59";
-
+    $stok = 0;
     if ($request->has("id_pembeli")) {
       $this->id_pembeli = $request->id_pembeli;
       $mutasi = Pack::where("id_pack",$id_pack)->with(["log_pack" => function($query){
@@ -136,7 +137,13 @@ class PackController extends Controller
         ->groupBy(DB::raw("date(waktu)"))
         ->orderBy("waktu","asc");
       }])->first();
-
+      $logPack = LogPack::select(
+        DB::raw("sum(if(status = 'in', jumlah, 0)) as masuk"),
+        DB::raw("sum(if(status = 'out', jumlah, 0)) as keluar"))
+      ->where("waktu","<",$this->from)
+      ->where("id_pack",$id_pack)
+      ->where("id_pembeli", $this->id_pembeli)->first();
+      $stok = $logPack->keluar - $logPack->masuk;
     } else {
       $mutasi = Pack::where("id_pack",$id_pack)->with(["log_pack" => function($query){
         $query->select("id_pack",
@@ -152,7 +159,10 @@ class PackController extends Controller
         ->orderBy("waktu","asc");
       }])->first();
     }
-    return response($mutasi);
+    return response([
+      "mutasi" => $mutasi,
+      "stok" => $stok
+    ]);
   }
 
   public function export_mutasi_pack($id_pack, $from, $to, $id_pembeli = null)

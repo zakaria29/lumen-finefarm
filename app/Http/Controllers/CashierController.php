@@ -6,9 +6,11 @@ use App\Users;
 use App\Orders;
 use App\PembayaranOrders;
 use App\KembaliPack;
+use App\KembaliOrders;
 use App\SetorUang;
 use App\Pack;
 use App\Barang;
+use App\LogHargaBarang;
 use DB;
 
 class CashierController extends Controller
@@ -259,10 +261,13 @@ class CashierController extends Controller
         ->groupBy("id_pack");
       }])->get();
       $setorUang = SetorUang::sum("nominal");
+      $this->id_kembali_orders =  KembaliOrders::where("status","0")->pluck("id_kembali_orders");
       $kembaliOrders = Barang::with(["detail_kembali_orders" => function($query){
         $query->select("id_barang",DB::raw("sum(jumlah_barang) as jumlah"))
+        ->whereIn("id_kembali_orders", $this->id_kembali_orders)
         ->groupBy("id_barang");
       }])->get();
+      $currentUpdate = LogHargaBarang::max("waktu");
 
       return response([
         "users" => $users,
@@ -272,7 +277,8 @@ class CashierController extends Controller
         "pay_verify" => $payVerify,
         "kembali_pack" => $kembaliPack,
         "setor_uang" => $setorUang,
-        "kembali_orders" => $kembaliOrders
+        "kembali_orders" => $kembaliOrders,
+        "currentUpdate" => $currentUpdate,
       ]);
     } catch (\Exception $e) {
       return response(["error" => $e->getMessage()]);

@@ -53,7 +53,7 @@ class MutasiStok implements FromArray, WithHeadings, ShouldAutoSize
           "tanggal" => $sb->waktu,
           "masuk" => $sb->masuk,
           "keluar" => $sb->keluar,
-          "loss" => $sb->loss
+          "loss" => $sb->loss == null ? "0" : $sb->loss
         ];
         array_push($mutasi, $item);
       }

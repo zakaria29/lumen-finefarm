@@ -26,5 +26,10 @@ class LogStokBarang extends Model
     {
       return $this->belongsTo("App\Supplier","id_supplier");
     }
+
+    public function detail_orders()
+    {
+      return $this->hasMany("App\DetailOrders","id_barang","id_barang");
+    }
 }
  ?>

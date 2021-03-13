@@ -6,6 +6,7 @@ use App\Users;
 use App\Orders;
 use App\Barang;
 use App\Supplier;
+use App\LogHargaBarang;
 use DB;
 class OwnerController extends Controller
 {
@@ -260,12 +261,14 @@ class OwnerController extends Controller
         "count" => Users::where("status","1")->where("id_level","4")->count()],
         ["role" => "Supplier", "count" => Supplier::count()],
       ];
+      $currentUpdate = LogHargaBarang::max("waktu");
       return response([
         "users" => $users,
         "total_orders" => $totalOrders,
         "harga_barang" => $hargaBarang,
         "stok_barang" => $stokBarang,
-        "pengguna" => $pengguna
+        "pengguna" => $pengguna,
+        "currentUpdate" => $currentUpdate,
       ]);
     } catch (\Exception $e) {
       return response(["error" => $e->getMessage()]);

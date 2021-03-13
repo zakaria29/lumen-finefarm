@@ -7,6 +7,7 @@ use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use App\Pack;
+use App\LogPack;
 use DB;
 
 class MutasiPack implements FromArray, WithHeadings, ShouldAutoSize
@@ -23,11 +24,16 @@ class MutasiPack implements FromArray, WithHeadings, ShouldAutoSize
 
     public function headings() : array
     {
-      return ["Nama Pack","Waktu","Masuk","Keluar","Stok","Beli","Harga"];
+      if ($this->id_pembeli === null) {
+        return ["Nama Pack","Waktu","Masuk","Keluar","Stok","Beli","Harga"];
+      } else {
+        return ["Nama Pack","Waktu","Masuk","Keluar","Sisa","Beli","Harga"];
+      }
     }
 
     public function array() : array
     {
+      $stok = 0;
       if ($this->id_pembeli != null) {
         $mutasi = Pack::where("id_pack",$this->id_pack)->with(["log_pack" => function($query){
           $query->select("id_pack",
@@ -43,6 +49,14 @@ class MutasiPack implements FromArray, WithHeadings, ShouldAutoSize
           ->groupBy(DB::raw("date(waktu)"))
           ->orderBy("waktu","asc");
         }])->first();
+
+        $logPack = LogPack::select(
+          DB::raw("sum(if(status = 'in', jumlah, 0)) as masuk"),
+          DB::raw("sum(if(status = 'out', jumlah, 0)) as keluar"))
+        ->where("waktu","<",$this->from)
+        ->where("id_pack",$this->id_pack)
+        ->where("id_pembeli", $this->id_pembeli)->first();
+        $stok = $logPack->keluar - $logPack->masuk;
 
       } else {
         $mutasi = Pack::where("id_pack",$this->id_pack)->with(["log_pack" => function($query){
@@ -61,18 +75,36 @@ class MutasiPack implements FromArray, WithHeadings, ShouldAutoSize
       }
 
       $mutasiPack = [];
-      foreach ($mutasi->log_pack as $sb) {
-        $item = [
-          "nama_pack" => $mutasi->nama_pack,
-          "tanggal" => $sb->waktu,
-          "masuk" => $sb->masuk,
-          "keluar" => $sb->keluar,
-          "stok" => $sb->stok - $sb->keluar + $sb->masuk,
-          "beli" => $sb->beli,
-          "harga" => $sb->harga,
-        ];
-        array_push($mutasiPack, $item);
+      if ($this->id_pembeli != null) {
+        foreach ($mutasi->log_pack as $sb) {
+          $stok = $stok + $sb->keluar - $sb->masuk - $sb->beli;
+          $item = [
+            "nama_pack" => $mutasi->nama_pack,
+            "tanggal" => $sb->waktu,
+            "masuk" => $sb->masuk,
+            "keluar" => $sb->keluar,
+            "sisa" => $stok,
+            "beli" => $sb->beli,
+            "harga" => $sb->harga,
+          ];
+          array_push($mutasiPack, $item);
+        }
+      } else {
+        foreach ($mutasi->log_pack as $sb) {
+          $item = [
+            "nama_pack" => $mutasi->nama_pack,
+            "tanggal" => $sb->waktu,
+            "masuk" => $sb->masuk,
+            "keluar" => $sb->keluar,
+            "stok" => $sb->stok - $sb->keluar + $sb->masuk,
+            "beli" => $sb->beli,
+            "harga" => $sb->harga,
+          ];
+          array_push($mutasiPack, $item);
+        }
       }
+
+
       return $mutasiPack;
     }
 }

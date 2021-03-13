@@ -246,3 +246,37 @@ create table log_harga_barang(
   harga double,
   id_users varchar(50)
 );
+
+
+-- retur_order
+create table retur_order(
+  id_retur_order varchar(50),
+  id_users varchar(50),
+  id_pembeli varchar(50),
+  waktu_order datetime,
+  waktu_pengiriman date,
+  po varchar(100),
+  invoice varchar(100),
+  id_status_orders int,
+  tgl_jatuh_tempo date,
+  tipe_pembayaran boolean,
+  total_bayar double,
+  id_sopir varchar(50),
+  down_payment double,
+  catatan text,
+  kendala text,
+  status boolean,
+  primary key(id_retur_order)
+);
+
+-- detail retur orders
+create table detail_retur_order(
+  id_retur_order varchar(50),
+  id_barang varchar(50),
+  id_pack varchar(50),
+  jumlah_barang double,
+  jumlah_pack double,
+  harga_beli double,
+  harga_pack double,
+  is_lock boolean
+);

@@ -8,7 +8,7 @@ class KembaliOrders extends Model
     protected $table = "kembali_orders";
     protected $primaryKey = "id_kembali_orders";
     protected $fillable = [
-      "id_kembali_orders","waktu","id_orders","id_sopir"
+      "id_kembali_orders","waktu","id_orders","id_sopir","status"
     ];
     public $incrementing = false;
     public $timestamps = false;

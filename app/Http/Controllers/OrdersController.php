@@ -25,6 +25,8 @@ use DB;
 use App\FPDF\FPDF;
 use App\KembaliOrders;
 use App\DetailKembaliOrders;
+use App\ReturOrder;
+use App\DetailReturOrder;
 use App\Exports\Order;
 use PDF;
 
@@ -212,6 +214,9 @@ class OrdersController extends Controller
     $orders->waktu_pengiriman = $request->waktu_pengiriman;
     $orders->po = $request->po;
     $orders->invoice = $request->invoice;
+    if ($request->verify == true) {
+      $orders->id_status_orders = "2";
+    }
     // $orders->id_status_orders = "1";
     $orders->tgl_jatuh_tempo = $request->tgl_jatuh_tempo;
     $orders->catatan = $request->catatan;
@@ -228,12 +233,15 @@ class OrdersController extends Controller
     $orders->save();
 
     // insert log order
-    /*$logOrder = new LogOrders();
-    $logOrder->id_orders = $orders->id_orders;
-    $logOrder->waktu = date("Y-m-d H:i:s");
-    $logOrder->id_users = $orders->id_pembeli;
-    $logOrder->id_status_orders = $orders->id_status_orders;
-    $logOrder->save();*/
+    if ($request->verify == true) {
+      $logOrder = new LogOrders();
+      $logOrder->id_orders = $orders->id_orders;
+      $logOrder->waktu = date("Y-m-d H:i:s");
+      $logOrder->id_users = $orders->id_pembeli;
+      $logOrder->id_status_orders = $orders->id_status_orders;
+      $logOrder->save();
+    }
+
 
     LogUang::where("id_log_uang", $orders->id_orders)->delete();
 
@@ -745,6 +753,7 @@ class OrdersController extends Controller
       $kembali->id_orders = $id_orders;
       $kembali->id_sopir = $request->id_users;
       $kembali->waktu = date("Y-m-d H:i:s");
+      $kembali->status = false;
       $kembali->save();
 
       foreach ($detail_kembali_orders as $dk) {
@@ -752,8 +761,48 @@ class OrdersController extends Controller
         $detail->id_kembali_orders = $kembali->id_kembali_orders;
         $detail->id_barang = $dk->id_barang;
         $detail->jumlah_barang = $dk->jumlah_barang;
+        $detail->id_pack = $dk->id_pack;
+        $detail->jumlah_pack = $dk->jumlah_pack;
         $detail->save();
       }
+    }
+
+    $id_retur_order = $id_orders;
+    $detail_retur_order = json_decode($request->detail_retur_order);
+    if (count($detail_retur_order) > 0) {
+      $total = 0;
+      foreach ($detail_retur_order as $dro) {
+        DetailReturOrder::create([
+          "id_retur_order" => $id_retur_order,
+          "id_barang" => $dro->id_barang,
+          "id_pack" => $dro->id_pack,
+          "jumlah_barang" => $dro->jumlah_barang,
+          "jumlah_pack" => $dro->jumlah_pack,
+          "harga_beli" => $dro->harga_beli,
+          "harga_pack" => $dro->harga_pack,
+          "is_lock" => $dro->is_lock
+        ]);
+        $total += (($dro->jumlah_barang * $dro->harga_beli) + ($dro->harga_pack * $dro->jumlah_pack));
+      }
+
+      ReturOrder::create([
+        "id_retur_order" => $id_retur_order,
+        "id_users" => $orders->id_users,
+        "id_pembeli" => $orders->id_pembeli,
+        "waktu_order" => $orders->waktu_order,
+        "waktu_pengiriman" => $orders->waktu_pengiriman,
+        "po" => $orders->po,
+        "invoice" => $orders->invoice,
+        "id_status_orders" => $orders->id_status_orders,
+        "tgl_jatuh_tempo" => $orders->tgl_jatuh_tempo,
+        "tipe_pembayaran" => $orders->tipe_pembayaran,
+        "total_bayar" => $total,
+        "id_sopir" => $orders->id_sopir,
+        "down_payment" => $orders->down_payment,
+        "catatan" => $request->keterangan_retur,
+        "kendala" => $orders->kendala,
+        "status" => false
+      ]);
     }
 
     return response([
@@ -1037,11 +1086,18 @@ class OrdersController extends Controller
       else if($lu->status == 'out') $modal += $lu->nominal;
     }
 
+    $this->selectedIDOrders = LogStokBarang::whereBetween("waktu", [$this->from, $this->to])
+    ->pluck("id");
     $barang = Barang::with(["log_stok_barang" => function($query){
       $query
       ->select("id_barang",DB::raw("sum(jumlah) as jumlah"))
       ->where("status", "out")
       ->whereBetween("waktu", [$this->from, $this->to])
+      ->groupBy("id_barang");
+    }, "log_stok_barang.detail_orders" => function($query){
+      $query
+      ->select("id_orders","id_barang",DB::raw("sum(harga_beli*jumlah_barang) as total"))
+      ->whereIn("id_orders", $this->selectedIDOrders)
       ->groupBy("id_barang");
     }])->get();
     return response([
@@ -1147,9 +1203,9 @@ class OrdersController extends Controller
   {
     return response(
       KembaliOrders::with([
-        "detail_kembali_orders","detail_kembali_orders.barang",
+        "detail_kembali_orders","detail_kembali_orders.barang","detail_kembali_orders.pack",
         "orders","orders.pembeli","orders.sopir"
-      ])->orderBy("waktu","asc")->get()
+      ])->where("status","0")->orderBy("waktu","asc")->get()
     );
   }
 
@@ -1177,6 +1233,7 @@ class OrdersController extends Controller
   public function verify_kembali_orders(Request $request)
   {
     $kembali = KembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->first();
+    $orders = Orders::where("id_orders", $kembali->id_orders)->first();
 
     $detail = json_decode($request->detail_kembali_orders);
     /***
@@ -1189,10 +1246,11 @@ class OrdersController extends Controller
       $detailOrders = DetailOrders::where("id_orders", $kembali->id_orders)
       ->where("id_barang", $det->id_barang)->first();
        $jumlah_barang = $detailOrders->jumlah_barang - $det->jumlah_barang;
+       $jumlah_pack = $detailOrders->jumlah_pack - $det->jumlah_pack;
 
        DetailOrders::where("id_orders", $kembali->id_orders)
        ->where("id_barang", $det->id_barang)
-       ->update(["jumlah_barang" => $jumlah_barang]);
+       ->update(["jumlah_barang" => $jumlah_barang,"jumlah_pack" => $jumlah_pack]);
 
 
       /** new log stok barang */
@@ -1226,6 +1284,34 @@ class OrdersController extends Controller
         $logStok->stok = $det->jumlah_barang;
       }
       $logStok->save();
+
+      /** update log stok Pack */
+      if ($det->jumlah_pack > 0) {
+        $logStok = new LogPack();
+        $logStok->waktu = date("Y-m-d H:i:s");
+        $logStok->jumlah = $det->jumlah_pack;
+        $logStok->id_pack = $det->id_pack;
+        $logStok->status = "in";
+        $logStok->beli = false;
+        $logStok->harga = 0;
+        $logStok->id_pembeli = $orders->id_pembeli;
+        $logStok->id_users = $orders->id_sopir;
+
+        // update stok pack
+        $stokPack = Pack::where("id_pack", $det->id_pack)->first();
+        Pack::where("id_pack", $det->id_pack)
+        ->update(["stok" => $stokPack->stok + $det->jumlah_pack]);
+
+        $logStok->stok = $stokPack->stok + $det->jumlah_pack;
+        $logStok->save();
+
+        /** update tanggungan pack */
+        $tp = TanggunganPack::where("id_users", $orders->id_pembeli)
+        ->where("id_pack", $det->id_pack)->first();
+        TanggunganPack::where("id_users", $orders->id_pembeli)->where("id_pack", $det->id_pack)
+        ->update(["jumlah" => $tp->jumlah - $det->jumlah_pack]);
+      }
+
     }
 
     /** get total_bayar */
@@ -1246,11 +1332,188 @@ class OrdersController extends Controller
     $bill->save();
 
     /** drop kembali orders */
-    KembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->delete();
-    DetailKembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->delete();
+    // KembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->delete();
+    // DetailKembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->delete();
+    KembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)
+    ->update(["status" => "1"]);
 
     return response(["message" => "Data Pengembalian Order telah diverifikasi"]);
   }
+
+  public function getReturOrder()
+  {
+    return response(
+      ReturOrder::with([
+        "detail_retur_order","detail_retur_order.barang","detail_retur_order.pack",
+        "pembeli","sopir"
+      ])->where("status","0")->orderBy("waktu_order","asc")->get()
+    );
+  }
+
+  public function verify_retur_order(Request $request)
+  {
+    $err = [];
+    try {
+      $retur = ReturOrder::where("id_retur_order", $request->id_retur_order)->first();
+      $detail = json_decode($request->detail_retur_order);
+      /***
+      request -> id_retur_order, id_users, id_pembeli, id_sopir, waktu_pengiriman
+      format json:
+      [{"id_barang": "IDB222", "jumlah_barang": "10", "id_supplier": "IDS9999"}]
+      */
+
+      /** create new id orders */
+      $ido = "IDO".time().rand(1,1000);
+
+
+      $total = 0;
+      foreach ($detail as $det) {
+        /** update detail retur */
+        DetailReturOrder::where("id_retur_order", $request->id_retur_order)->where("id_barang", $det->id_barang)
+        ->update(["jumlah_barang" => $det->jumlah_barang, "jumlah_pack" => $det->jumlah_pack]);
+
+        /** create new detail_order */
+        DetailOrders::create([
+          "id_orders" => $ido,
+          "id_barang" => $det->id_barang,
+          "id_pack" => $det->id_pack_new,
+          "jumlah_barang" => $det->jumlah_barang,
+          "jumlah_pack" => $det->jumlah_pack_new,
+          "harga_beli" => $det->harga_beli,
+          "harga_pack" => $det->harga_pack,
+          "is_lock" => $det->is_lock
+        ]);
+
+        /** count total */
+        $total += ($det->harga_beli * $det->jumlah_barang) + ($det->harga_pack * $det->jumlah_pack);
+
+        /** edit detail_orders */
+        $detailOrders = DetailOrders::where("id_orders", $request->id_retur_order)
+        ->where("id_barang", $det->id_barang)->first();
+         $jumlah_barang = $detailOrders->jumlah_barang - $det->jumlah_barang;
+         $jumlah_pack = $detailOrders->jumlah_pack - $det->jumlah_pack;
+
+         DetailOrders::where("id_orders", $request->id_retur_order)
+         ->where("id_barang", $det->id_barang)
+         ->update(["jumlah_barang" => $jumlah_barang, "jumlah_pack" => $jumlah_pack]);
+
+
+        /** update log stok barang */
+        $logStok = new LogStokBarang();
+        $logStok->waktu = date("Y-m-d H:i:s");
+        $logStok->event = "Retur Barang";
+        $logStok->id_users = $request->id_users;
+        $logStok->id_barang = "IDB666";
+        $logStok->id_supplier = $det->id_supplier;
+        $logStok->jumlah = $det->jumlah_barang;
+        $logStok->id = $retur->id_retur_order;
+        $logStok->status = "in";
+
+        // update stok_barang
+        $stokBarang = StokBarang::where("id_supplier", $det->id_supplier)
+        ->where("id_barang", "IDB666");
+        if ($stokBarang->count() > 0) {
+          $stok = $stokBarang->first();
+          StokBarang::where("id_supplier", $det->id_supplier)
+          ->where("id_barang", "IDB666")
+          ->update(["stok" => $stok->stok + $det->jumlah_barang]);
+
+          $logStok->stok = $stok->stok + $det->jumlah_barang;
+        }else{
+          $stok = new StokBarang();
+          $stok->id_supplier = $det->id_supplier;
+          $stok->id_barang = "IDB666";
+          $stok->stok = $det->jumlah_barang;
+          $stok->save();
+
+          $logStok->stok = $det->jumlah_barang;
+        }
+        $logStok->save();
+
+        /** update log stok Pack */
+        if ($det->jumlah_pack > 0) {
+          $logStok = new LogPack();
+          $logStok->waktu = date("Y-m-d H:i:s");
+          $logStok->jumlah = $det->jumlah_pack;
+          $logStok->id_pack = $det->id_pack;
+          $logStok->status = "in";
+          $logStok->beli = ($det->harga_pack > 0) ? true : false;
+          $logStok->harga = $det->harga_pack;
+          $logStok->id_pembeli = $request->id_pembeli;
+          $logStok->id_users = $request->id_sopir;
+
+          // update stok pack
+          $stokPack = Pack::where("id_pack", $det->id_pack)->first();
+          Pack::where("id_pack", $det->id_pack)
+          ->update(["stok" => $stokPack->stok + $det->jumlah_pack]);
+
+          $logStok->stok = $stokPack->stok + $det->jumlah_pack;
+          $logStok->save();
+
+          /** update tanggungan pack */
+          $tp = TanggunganPack::where("id_users", $request->id_pembeli)
+          ->where("id_pack", $det->id_pack)->first();
+          TanggunganPack::where("id_users", $request->id_pembeli)->where("id_pack", $det->id_pack)
+          ->update(["jumlah" => $tp->jumlah - $det->jumlah_pack]);
+        }
+      }
+
+      /** get total_bayar */
+      // $detailOrders = DetailOrders::where("id_orders", $kembali->id_orders)->get();
+      // $total = 0;
+      // foreach ($detailOrders as $det) {
+      //   $total += ($det->harga_beli * $det->jumlah_barang) + ($det->harga_pack * $det->jumlah_pack);
+      // }
+
+      array_push($err,"foreach end");
+      /** edit total_bayar pada Orders */
+      $orders = Orders::where("id_orders", $retur->id_retur_order)->first();
+      $orders->total_bayar = $orders->total_bayar - $total;
+      $orders->save();
+
+      array_push($err,"total orders saved");
+
+      /** update bill */
+      $bill = Bill::where("id_orders", $retur->id_retur_order)->first();
+      $bill->nominal = $orders->total_bayar - $orders->down_payment;
+      $bill->save();
+
+      array_push($err,"bill saved");
+
+      /** drop kembali orders */
+      // KembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->delete();
+      // DetailKembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->delete();
+
+      /** update status retur */
+      ReturOrder::where("id_retur_order", $request->id_retur_order)->update(["status" => "1", "total_bayar" => $total]);
+
+      /** create new orders */
+      Orders::create([
+        "id_orders" => $ido,
+        "id_pembeli" => $retur->id_pembeli,
+        "id_users" => $request->id_users,
+        "waktu_order" => date("Y-m-d H:i:s"),
+        "waktu_pengiriman" => $request->waktu_pengiriman,
+        "po" => $retur->po, "invoice" => $retur->invoice,
+        "id_status_orders" => "2",
+        "tgl_jatuh_tempo" => $retur->tgl_jatuh_tempo,
+        "tipe_pembayaran" => $retur->tipe_pembayaran,
+        "total_bayar" => $total,
+        "id_sopir" => $request->id_sopir,
+        "down_payment" => $retur->down_payment,
+        "catatan" => "Retur Barang",
+        "kendala" => ""
+      ]);
+
+      array_push($err,"order created");
+
+      return response(["message" => "Data Retur Order telah diverifikasi"]);
+    } catch (\Exception $e) {
+      return response(["message" => $e->getMessage(),"log" => $err]);
+    }
+
+  }
+
 
   public function grafik(Request $request)
   {
@@ -1346,7 +1609,7 @@ class OrdersController extends Controller
         $countTP += $item->jumlah;
       }
       if ($countTP > 0) {
-        $doc->Cell(7,0.8,'Tanggungan Pack Sebelumnya',0,1,'C');
+        $doc->Cell(7,0.8,'Tanggungan Pack',0,1,'C');
         $doc->Cell(3,0.8,'Nama Pack','B',0,'L');
         $doc->Cell(2,0.8,'Jumlah','B',0,'C');
         $doc->Cell(2,0.8,'Kembali','B',1,'C');
@@ -1485,8 +1748,38 @@ class OrdersController extends Controller
     } catch (\Exception $e) {
       return response(["message" => $e->getMessage()]);
     }
+  }
 
+  public function get_kembali_orders(Request $request, $limit = 5, $offset = 0)
+  {
+    $from = $request->from;
+    $to = $request->to;
+    $kembali = KembaliOrders::whereBetween("waktu", [$from, $to])
+    ->where("status","1")->orderBy("waktu","asc")
+    ->with([
+      "orders","detail_kembali_orders","detail_kembali_orders.barang",
+      "detail_kembali_orders.pack","orders.pembeli","orders.users","sopir"
+    ]);
+    return response([
+      "kembali_orders" => $kembali->take($limit)->skip($offset)->get(),
+      "count" => $kembali->count()
+    ]);
+  }
 
+  public function get_retur_orders(Request $request, $limit = 5, $offset = 0)
+  {
+    $from = $request->from;
+    $to = $request->to;
+    $retur = ReturOrder::whereBetween("waktu_pengiriman", [$from, $to])
+    ->where("status","1")->orderBy("waktu_pengiriman","asc")
+    ->with([
+      "detail_retur_order","detail_retur_order.barang",
+      "detail_retur_order.pack","pembeli","users","sopir"
+    ]);
+    return response([
+      "retur_orders" => $retur->take($limit)->skip($offset)->get(),
+      "count" => $retur->count()
+    ]);
   }
 }
 
