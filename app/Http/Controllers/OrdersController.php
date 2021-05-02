@@ -1327,9 +1327,12 @@ class OrdersController extends Controller
     $orders->save();
 
     /** update bill */
-    $bill = Bill::where("id_orders", $kembali->id_orders)->first();
-    $bill->nominal = $orders->total_bayar - $orders->down_payment;
-    $bill->save();
+    if ($orders->tipe_pembayaran != "1") {
+      $bill = Bill::where("id_orders", $kembali->id_orders)->first();
+      $bill->nominal = $orders->total_bayar - $orders->down_payment;
+      $bill->save();
+    }
+
 
     /** drop kembali orders */
     // KembaliOrders::where("id_kembali_orders", $request->id_kembali_orders)->delete();
@@ -1345,7 +1348,8 @@ class OrdersController extends Controller
     return response(
       ReturOrder::with([
         "detail_retur_order","detail_retur_order.barang","detail_retur_order.pack",
-        "pembeli","sopir"
+        "pembeli","sopir",
+        "detail_orders","detail_orders.barang","detail_orders.pack",
       ])->where("status","0")->orderBy("waktu_order","asc")->get()
     );
   }
@@ -1504,6 +1508,15 @@ class OrdersController extends Controller
         "catatan" => "Retur Barang",
         "kendala" => ""
       ]);
+
+      /** log order */
+      $logOrder = new LogOrders();
+      $logOrder->id_orders = $ido;
+      $logOrder->waktu = date("Y-m-d H:i:s");
+      $logOrder->id_users = $request->id_users;
+      $logOrder->id_status_orders = "2";
+      $logOrder->save();
+
 
       array_push($err,"order created");
 
@@ -1779,6 +1792,24 @@ class OrdersController extends Controller
     return response([
       "retur_orders" => $retur->take($limit)->skip($offset)->get(),
       "count" => $retur->count()
+    ]);
+  }
+
+  public function cancel_order(Request $request,$id)
+  {
+    $orders = Orders::where("id_orders", $id)->first();
+    $orders->id_status_orders = "0";
+    $orders->save();
+
+    $logOrder = new LogOrders();
+    $logOrder->id_orders = $id;
+    $logOrder->waktu = date("Y-m-d H:i:s");
+    $logOrder->id_users = $request->id_users;
+    $logOrder->id_status_orders = $orders->id_status_orders;
+    $logOrder->save();
+
+    return response([
+      "message" => "Data order telah dibatalkan"
     ]);
   }
 }

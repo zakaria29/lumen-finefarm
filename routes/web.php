@@ -132,10 +132,10 @@ $router->post("/pay-orders","OrdersController@pay_orders");
 $router->get("/verify-pembayaran", "OrdersController@get_verify_pembayaran");
 $router->post("/verify-pembayaran","OrdersController@verify_pembayaran");
 $router->post("/summary-orders","OrdersController@summary_orders");
-$router->get("/export-orders/{from}/{to}[/{find}]",
-"OrdersController@export_orders");
+$router->get("/export-orders/{from}/{to}[/{find}]","OrdersController@export_orders");
 $router->post("/grafik","OrdersController@grafik");
 $router->post("/kendala","OrdersController@kendala");
+$router->post("/cancel-order/{id}","OrdersController@cancel_order");
 
 $router->post("/mutasi-pack/{id_pack}","PackController@mutasi_pack");
 $router->get("/export-mutasi-pack/{id_pack}/{from}/{to}[/{id_pembeli}]",
@@ -154,3 +154,5 @@ $router->post("/kembali_orders[/{limit}/{offset}]","OrdersController@get_kembali
 $router->get("/retur-order","OrdersController@getReturOrder");
 $router->post("/retur-order","OrdersController@verify_retur_order");
 $router->post("/retur_orders[/{limit}/{offset}]","OrdersController@get_retur_orders");
+
+$router->post("/reset-system","OwnerController@reset_system");

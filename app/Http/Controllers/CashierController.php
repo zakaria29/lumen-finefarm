@@ -11,6 +11,7 @@ use App\SetorUang;
 use App\Pack;
 use App\Barang;
 use App\LogHargaBarang;
+use App\ReturOrder;
 use DB;
 
 class CashierController extends Controller
@@ -261,11 +262,31 @@ class CashierController extends Controller
         ->groupBy("id_pack");
       }])->get();
       $setorUang = SetorUang::sum("nominal");
+
       $this->id_kembali_orders =  KembaliOrders::where("status","0")->pluck("id_kembali_orders");
       $kembaliOrders = Barang::with(["detail_kembali_orders" => function($query){
         $query->select("id_barang",DB::raw("sum(jumlah_barang) as jumlah"))
         ->whereIn("id_kembali_orders", $this->id_kembali_orders)
         ->groupBy("id_barang");
+      }])->get();
+
+      $packKembaliOrders = Pack::with(["detail_kembali_orders" => function($query){
+        $query->select("id_pack",DB::raw("sum(jumlah_pack) as jumlah"))
+        ->whereIn("id_kembali_orders", $this->id_kembali_orders)
+        ->groupBy("id_pack");
+      }])->get();
+
+      $this->id_retur_order =  ReturOrder::where("status","0")->pluck("id_retur_order");
+      $returOrders = Barang::with(["detail_retur_order" => function($query){
+        $query->select("id_barang",DB::raw("sum(jumlah_barang) as jumlah"))
+        ->whereIn("id_retur_order", $this->id_retur_order)
+        ->groupBy("id_barang");
+      }])->get();
+
+      $packReturOrders = Pack::with(["detail_retur_order" => function($query){
+        $query->select("id_pack",DB::raw("sum(jumlah_pack) as jumlah"))
+        ->whereIn("id_retur_order", $this->id_retur_order)
+        ->groupBy("id_pack");
       }])->get();
       $currentUpdate = LogHargaBarang::max("waktu");
 
@@ -277,7 +298,14 @@ class CashierController extends Controller
         "pay_verify" => $payVerify,
         "kembali_pack" => $kembaliPack,
         "setor_uang" => $setorUang,
-        "kembali_orders" => $kembaliOrders,
+        "kembali_orders" => [
+          "barang" => $kembaliOrders,
+          "pack" => $packKembaliOrders
+        ],
+        "retur_order" => [
+          "barang" => $returOrders,
+          "pack" => $packReturOrders
+        ],
         "currentUpdate" => $currentUpdate,
       ]);
     } catch (\Exception $e) {

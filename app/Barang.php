@@ -53,4 +53,9 @@ class Barang extends Model
     {
       return $this->hasMany("App\DetailKembaliOrders","id_barang","id_barang");
     }
+
+    public function detail_retur_order()
+    {
+      return $this->hasMany("App\DetailReturOrder","id_barang","id_barang");
+    }
 }

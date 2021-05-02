@@ -11,6 +11,7 @@ use App\SetorUang;
 use App\Barang;
 use App\Bill;
 use App\LogHargaBarang;
+use App\ReturOrder;
 use DB;
 
 class DriverController extends Controller
@@ -300,6 +301,37 @@ class DriverController extends Controller
         ->whereIn("id_kembali_orders", $this->id_kembali_orders);
       })->groupBy("id_barang");
     }])->get();
+
+
+    $packKembaliOrders = Pack::with(["detail_kembali_orders" => function($query){
+      $query->select("id_pack",DB::raw("sum(jumlah_pack) as jumlah"))
+      ->whereIn("id_kembali_orders", function($join){
+        $join->select("id_kembali_orders")->from("kembali_orders")
+        ->where("id_sopir", $this->driver->id_users)
+        ->whereIn("id_kembali_orders", $this->id_kembali_orders);
+      })->groupBy("id_pack");
+    }])->get();
+
+    $this->id_retur_order =  ReturOrder::where("status","0")->pluck("id_retur_order");
+    $returOrders = Barang::with(["detail_retur_order" => function($query){
+      $query->select("id_barang",DB::raw("sum(jumlah_barang) as jumlah"))
+      ->whereIn("id_retur_order", function($join){
+        $join->select("id_retur_order")->from("retur_order")
+        ->where("id_sopir", $this->driver->id_users)
+        ->whereIn("id_retur_order", $this->id_retur_order);
+      })->groupBy("id_barang");
+    }])->get();
+
+
+    $packReturOrders = Pack::with(["detail_retur_order" => function($query){
+      $query->select("id_pack",DB::raw("sum(jumlah_pack) as jumlah"))
+      ->whereIn("id_retur_order", function($join){
+        $join->select("id_retur_order")->from("retur_order")
+        ->where("id_sopir", $this->driver->id_users)
+        ->whereIn("id_retur_order", $this->id_retur_order);
+      })->groupBy("id_pack");
+    }])->get();
+
     $currentUpdate = LogHargaBarang::max("waktu");
     return response([
       "users" => $this->driver,
@@ -309,7 +341,14 @@ class DriverController extends Controller
       "delivered_order" => $deliveredOrder,
       "prepare_barang" => $prepareBarang,
       "prepare_pack" => $preparePack,
-      "kembali_orders" => $kembaliOrders,
+      "kembali_orders" => [
+        'barang' => $kembaliOrders,
+        'pack' => $packKembaliOrders
+      ],
+      "retur_order" => [
+        'barang' => $returOrders,
+        'pack' => $packReturOrders
+      ],
       "currentUpdate" => $currentUpdate,
     ]);
   }

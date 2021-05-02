@@ -44,5 +44,14 @@ class Pack extends Model
       return $this->hasMany("App\TanggunganPack","id_pack","id_pack");
     }
 
+    public function detail_kembali_orders()
+    {
+      return $this->hasMany("App\DetailKembaliOrders","id_pack","id_pack");
+    }
+
+    public function detail_retur_order()
+    {
+      return $this->hasMany("App\DetailReturOrder","id_pack","id_pack");
+    }
 }
 ?>

@@ -41,5 +41,10 @@ class ReturOrder extends Model
       return $this->hasMany("App\DetailReturOrder","id_retur_order","id_retur_order");
     }
 
+    public function detail_orders()
+    {
+      return $this->hasMany("App\DetailOrders","id_orders","id_retur_order");
+    }
+
 }
  ?>

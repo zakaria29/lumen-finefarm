@@ -7,7 +7,29 @@ use App\Orders;
 use App\Barang;
 use App\Supplier;
 use App\LogHargaBarang;
+use App\DetailOrders;
+use App\RekapDetailOrders;
+use App\LogOrders;
+use App\PembayaranOrders;
+use App\Bill;
+use App\TanggunganPack;
+use App\TanggunganPembayaran;
+use App\StokBarang;
+use App\KembaliOrders;
+use App\DetailKembaliOrders;
+use App\KembaliPack;
+use App\LogGetSupplier;
+use App\LogPack;
+use App\LogStokBarang;
+use App\LogUang;
+use App\SetorUang;
+use App\ReturOrder;
+use App\DetailReturOrder;
+use App\Supply;
+use App\DetailSupply;
 use DB;
+
+
 class OwnerController extends Controller
 {
   public function get_all()
@@ -272,6 +294,54 @@ class OwnerController extends Controller
       ]);
     } catch (\Exception $e) {
       return response(["error" => $e->getMessage()]);
+    }
+  }
+
+  public function reset_system(Request $request)
+  {
+    $token = $request->token;
+    $password = $request->password;
+    $owner = Users::where("id_level","1")->where("token", $token);
+    if ($owner->count() > 0) {
+      $o = $owner->first();
+      if (Crypt::decrypt($o->password) == $password) {
+        // valid password
+        DetailSupply::truncate();
+        Supply::truncate();
+        DetailReturOrder::truncate();
+        ReturOrder::truncate();
+        SetorUang::truncate();
+        LogUang::truncate();
+        LogStokBarang::truncate();
+        LogPack::truncate();
+        LogGetSupplier::truncate();
+        KembaliPack::truncate();
+        DetailKembaliOrders::truncate();
+        KembaliOrders::truncate();
+        StokBarang::truncate();
+        TanggunganPack::truncate();
+        TanggunganPembayaran::truncate();
+        Bill::truncate();
+        PembayaranOrders::truncate();
+        LogOrders::truncate();
+        RekapDetailOrders::truncate();
+        DetailOrders::truncate();
+        Orders::truncate();
+        return response([
+          "status" => true,
+          "message" => "All transactions have been reset"
+        ]);
+      }else{
+        return response([
+          "status" => false,
+          "message" => "Invalid Passoword"
+        ]);
+      }
+    } else {
+      return response([
+        "status" => false,
+        "message" => "Invalid Passoword"
+      ]);
     }
   }
 }
